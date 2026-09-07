@@ -864,44 +864,7 @@ $totalIncome = $serviceIncome + $productIncome;
 
 <body>
 
-
-<!-- =========================================================
-     HEADER
-========================================================= -->
-
-<header class="admin-header">
-
-    <div class="header-left">
-
-        <img
-            src="../assets/images/logo.png"
-            alt="NAVA Fade Studio"
-            class="logo"
-        >
-
-    </div>
-
-
-    <div class="header-right">
-
-        <div class="welcome-text">
-            Welcome,
-            <span>
-                <?= htmlspecialchars($adminUsername) ?>
-            </span>
-        </div>
-
-        <a
-            href="logout.php"
-            class="logout-btn"
-        >
-            Logout
-        </a>
-
-    </div>
-
-</header>
-
+<?php include "navbar.php"; ?>
 
 <!-- =========================================================
      ADMIN LAYOUT
@@ -909,63 +872,9 @@ $totalIncome = $serviceIncome + $productIncome;
 
 <div class="admin-layout">
 
+<?php include "sidebar.php"; ?>
 
-    <!-- =====================================================
-         SIDEBAR
-    ====================================================== -->
-
-    <aside class="sidebar">
-
-        <div class="sidebar-title">
-            Admin Panel
-        </div>
-
-
-        <nav class="sidebar-menu">
-
-            <a
-                href="dashboard.php"
-                class="active"
-            >
-                Dashboard
-            </a>
-
-
-            <a href="services.php">
-                Services
-            </a>
-
-
-            <a href="bookings.php">
-                Bookings
-            </a>
-
-
-            <a href="products.php">
-                Products
-            </a>
-
-
-            <a href="orders.php">
-                Orders
-            </a>
-
-
-            <a href="reviews.php">
-                Reviews
-            </a>
-
-
-            <a href="settings.php">
-                Settings
-            </a>
-
-        </nav>
-
-    </aside>
-
-
-    <!-- =====================================================
+<!-- =====================================================
          MAIN CONTENT
     ====================================================== -->
 

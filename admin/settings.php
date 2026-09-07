@@ -906,111 +906,17 @@ if (
 
 <body>
 
-
-<!-- =====================================================
-     HEADER
-===================================================== -->
-
-<header class="admin-header">
-
-
-    <div class="admin-logo">
-
-        <img
-            src="../assets/images/logo.png"
-            alt="NAVA Fade Studio"
-        >
-
-    </div>
-
-
-    <div class="admin-user">
-
-        <span>
-
-            Welcome,
-            <?= htmlspecialchars(
-                $_SESSION["admin_username"]
-                ?? "Admin"
-            ) ?>
-
-        </span>
-
-
-        <a
-            href="logout.php"
-            class="logout-btn"
-        >
-            Logout
-        </a>
-
-    </div>
-
-
-</header>
-
+<?php include "navbar.php"; ?>
 
 <!-- =====================================================
      ADMIN LAYOUT
 ===================================================== -->
 
-<div class="dashboard">
+<div class="admin-layout">
 
+<?php include "sidebar.php"; ?>
 
-    <!-- =================================================
-         SIDEBAR
-    ================================================= -->
-
-    <aside class="sidebar">
-
-
-        <div class="sidebar-title">
-            Admin Panel
-        </div>
-
-
-        <a href="dashboard.php">
-            Dashboard
-        </a>
-
-
-        <a href="services.php">
-            Services
-        </a>
-
-
-        <a href="bookings.php">
-            Bookings
-        </a>
-
-
-        <a href="products.php">
-            Products
-        </a>
-
-
-        <a href="orders.php">
-            Orders
-        </a>
-
-
-        <a href="reviews.php">
-            Reviews
-        </a>
-
-
-        <a
-            href="settings.php"
-            class="active"
-        >
-            Settings
-        </a>
-
-
-    </aside>
-
-
-    <!-- =================================================
+<!-- =================================================
          MAIN CONTENT
     ================================================= -->
 

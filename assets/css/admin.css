@@ -1,0 +1,285 @@
+/* =========================================
+   ADMIN BOOKINGS
+========================================= */
+
+.page-header {
+    margin-bottom: 30px;
+}
+
+
+.page-header h1 {
+    color: #ffffff;
+
+    font-size: 36px;
+
+    margin-bottom: 8px;
+}
+
+
+.page-header p {
+    color: #bfc3cc;
+
+    font-size: 16px;
+}
+
+
+/* MESSAGES */
+
+.admin-success,
+.admin-error {
+    padding: 15px 20px;
+
+    border-radius: 8px;
+
+    margin-bottom: 20px;
+
+    font-weight: 600;
+}
+
+
+.admin-success {
+    background: rgba(46, 204, 113, 0.12);
+
+    color: #2ecc71;
+
+    border: 1px solid #2ecc71;
+}
+
+
+.admin-error {
+    background: rgba(231, 76, 60, 0.12);
+
+    color: #e74c3c;
+
+    border: 1px solid #e74c3c;
+}
+
+
+/* TABLE CONTAINER */
+
+.bookings-table-container {
+    width: 100%;
+
+    overflow-x: auto;
+
+    background: #151c2d;
+
+    border: 1px solid #b8862c;
+
+    border-radius: 15px;
+}
+
+
+/* TABLE */
+
+.bookings-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    min-width: 1000px;
+}
+
+
+.bookings-table th {
+    background: #0e1423;
+
+    color: #e5b94e;
+
+    text-align: left;
+
+    padding: 18px;
+
+    font-size: 14px;
+
+    letter-spacing: 0.5px;
+}
+
+
+.bookings-table td {
+    padding: 18px;
+
+    color: #ffffff;
+
+    border-top: 1px solid
+        rgba(255, 255, 255, 0.08);
+
+    vertical-align: middle;
+
+    font-size: 14px;
+}
+
+
+.bookings-table tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+
+/* CUSTOMER */
+
+.customer-contact {
+    display: block;
+
+    color: #bfc3cc;
+
+    font-size: 12px;
+
+    margin-top: 5px;
+}
+
+
+/* NOTES */
+
+.booking-notes {
+    max-width: 220px;
+
+    color: #bfc3cc !important;
+
+    line-height: 1.5;
+}
+
+
+.no-notes {
+    color: #777f8f;
+}
+
+
+/* TIME */
+
+.booking-time {
+    color: #e5b94e;
+
+    font-size: 13px;
+}
+
+
+/* STATUS BADGES */
+
+.booking-status {
+    display: inline-block;
+
+    padding: 7px 12px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+}
+
+
+.status-pending {
+    color: #e5b94e;
+
+    background: rgba(229, 185, 78, 0.12);
+
+    border: 1px solid #e5b94e;
+}
+
+
+.status-confirmed {
+    color: #2ecc71;
+
+    background: rgba(46, 204, 113, 0.12);
+
+    border: 1px solid #2ecc71;
+}
+
+
+.status-completed {
+    color: #3498db;
+
+    background: rgba(52, 152, 219, 0.12);
+
+    border: 1px solid #3498db;
+}
+
+
+.status-cancelled {
+    color: #e74c3c;
+
+    background: rgba(231, 76, 60, 0.12);
+
+    border: 1px solid #e74c3c;
+}
+
+
+/* STATUS FORM */
+
+.status-form {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 8px;
+}
+
+
+.status-select {
+    padding: 9px 10px;
+
+    background: #0e1423;
+
+    color: #ffffff;
+
+    border: 1px solid #b8862c;
+
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    outline: none;
+}
+
+
+.update-status-btn {
+    padding: 9px 14px;
+
+    background: #b8862c;
+
+    color: #ffffff;
+
+    border: none;
+
+    border-radius: 6px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.3s ease;
+}
+
+
+.update-status-btn:hover {
+    background: #d09c36;
+
+    transform: translateY(-1px);
+}
+
+
+/* NO BOOKINGS */
+
+.no-bookings {
+    padding: 60px 20px;
+
+    text-align: center;
+
+    background: #151c2d;
+
+    border: 1px solid #b8862c;
+
+    border-radius: 15px;
+}
+
+
+.no-bookings h2 {
+    color: #ffffff;
+
+    margin-bottom: 10px;
+}
+
+
+.no-bookings p {
+    color: #bfc3cc;
+}

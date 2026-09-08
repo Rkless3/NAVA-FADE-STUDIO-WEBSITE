@@ -281,6 +281,10 @@ $stockAttention =
                 sans-serif;
 
             background:
+                linear-gradient(
+                    rgba(8, 12, 22, 0.92),
+                    rgba(8, 12, 22, 0.96)
+                ),
                 url("../assets/images/pattern3.png");
 
             background-size: cover;
@@ -1659,7 +1663,7 @@ $stockAttention =
 
 <body>
 
-<?php include "navbar.php"; ?>
+<?php include "../admin/navbar.php"; ?>
 
 <!-- =====================================================
      ADMIN LAYOUT

@@ -906,7 +906,7 @@ if (
 
 <body>
 
-<?php include "navbar.php"; ?>
+<?php include "../admin/navbar.php"; ?>
 
 <!-- =====================================================
      ADMIN LAYOUT

@@ -98,6 +98,6 @@ $adminUsername = $_SESSION["admin_username"] ?? "Admin";
             <strong><?= htmlspecialchars($adminUsername) ?></strong>
         </span>
 
-        <a href="logout.php" class="logout-btn">Logout</a>
+        <a href="../logout.php" class="logout-btn">Logout</a>
     </div>
 </header>

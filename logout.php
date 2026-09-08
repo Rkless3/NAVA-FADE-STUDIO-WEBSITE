@@ -42,7 +42,7 @@ session_destroy();
  * Return to ONE LOGIN PAGE.
  */
 
-header("Location: login.php");
+header("Location: index.php");
 exit;
 
 ?>

@@ -212,6 +212,10 @@ $totalIncome = $serviceIncome + $productIncome;
         body {
             font-family: Bahnschrift, "Segoe UI", Arial, sans-serif;
             background:
+                linear-gradient(
+                    rgba(8, 12, 22, 0.92),
+                    rgba(8, 12, 22, 0.96)
+                ),
                 url("../assets/images/pattern3.png");
             background-size: cover;
             background-position: center;
@@ -318,92 +322,6 @@ $totalIncome = $serviceIncome + $productIncome;
             min-height: calc(100vh - 95px);
         }
 
-
-        /* =====================================================
-           SIDEBAR
-        ===================================================== */
-
-        .sidebar {
-            width: 250px;
-            flex-shrink: 0;
-
-            padding: 35px 20px;
-
-            background: rgba(14, 20, 35, 0.95);
-
-            border-right: 1px solid rgba(184, 134, 44, 0.5);
-
-            min-height: calc(100vh - 95px);
-
-            position: sticky;
-            top: 95px;
-            align-self: flex-start;
-        }
-
-
-        .sidebar-title {
-            font-size: 11px;
-            letter-spacing: 3px;
-            color: #71809b;
-
-            margin: 0 15px 28px;
-
-            text-transform: uppercase;
-        }
-
-
-        .sidebar-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-
-            height: 46px;
-
-            padding: 0 18px;
-
-            border-radius: 9px;
-
-            color: #f1f1f1;
-            text-decoration: none;
-
-            font-size: 14px;
-            font-weight: 600;
-
-            transition:
-                background 0.25s ease,
-                color 0.25s ease,
-                transform 0.25s ease;
-        }
-
-
-        .sidebar-menu a:hover {
-            background: rgba(184, 134, 44, 0.15);
-            color: #d5a63a;
-            transform: translateX(2px);
-        }
-
-
-        .sidebar-menu a.active {
-            background: #c28c25;
-            color: #0e1423;
-            font-weight: 700;
-
-            box-shadow:
-                0 6px 18px rgba(0, 0, 0, 0.18);
-        }
-
-
-        .sidebar-menu a.active:hover {
-            background: #d19a2b;
-            color: #0e1423;
-            transform: none;
-        }
 
 
         /* =====================================================
@@ -864,7 +782,7 @@ $totalIncome = $serviceIncome + $productIncome;
 
 <body>
 
-<?php include "navbar.php"; ?>
+<?php include "../admin/navbar.php"; ?>
 
 <!-- =========================================================
      ADMIN LAYOUT
@@ -872,7 +790,7 @@ $totalIncome = $serviceIncome + $productIncome;
 
 <div class="admin-layout">
 
-<?php include "sidebar.php"; ?>
+<?php include "../admin/sidebar.php"; ?>
 
 <!-- =====================================================
          MAIN CONTENT

@@ -1245,7 +1245,7 @@ $averagePrice = $totalServices > 0
 
 <body>
 
-<?php include "navbar.php"; ?>
+<?php include "../admin/navbar.php"; ?>
 
 <!-- =========================================================
      MAIN DASHBOARD
@@ -1253,7 +1253,7 @@ $averagePrice = $totalServices > 0
 
 <div class="admin-layout">
 
-<?php include "sidebar.php"; ?>
+<?php include "../admin/sidebar.php"; ?>
 
 <!-- =====================================================
          MAIN CONTENT

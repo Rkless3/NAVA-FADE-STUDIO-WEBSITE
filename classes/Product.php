@@ -12,17 +12,16 @@ class Product
     public string $image;
     public string $status;
 
-
     public function __construct(PDO $db)
     {
         $this->conn = $db;
     }
 
-
-    // =========================================
-    // GET ALL PRODUCTS
-    // =========================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | GET ALL PRODUCTS
+    |--------------------------------------------------------------------------
+    */
     public function getAll(): array
     {
         $query = "
@@ -37,11 +36,11 @@ class Product
         return $stmt->fetchAll();
     }
 
-
-    // =========================================
-    // GET ACTIVE PRODUCTS
-    // =========================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | GET ACTIVE PRODUCTS
+    |--------------------------------------------------------------------------
+    */
     public function getActive(): array
     {
         $query = "
@@ -57,11 +56,11 @@ class Product
         return $stmt->fetchAll();
     }
 
-
-    // =========================================
-    // GET ONE PRODUCT
-    // =========================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | GET PRODUCT BY ID
+    |--------------------------------------------------------------------------
+    */
     public function getById(int $id): ?array
     {
         $query = "
@@ -73,7 +72,7 @@ class Product
 
         $stmt = $this->conn->prepare($query);
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":id",
             $id,
             PDO::PARAM_INT
@@ -86,11 +85,14 @@ class Product
         return $product ?: null;
     }
 
-
-    // =========================================
-    // CREATE PRODUCT
-    // =========================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE PRODUCT
+    |--------------------------------------------------------------------------
+    |
+    | Stock can be entered when creating a NEW product.
+    |
+    */
     public function create(): bool
     {
         $query = "
@@ -116,33 +118,33 @@ class Product
 
         $stmt = $this->conn->prepare($query);
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":product_name",
             $this->product_name
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":description",
             $this->description
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":price",
             $this->price
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":stock",
             $this->stock,
             PDO::PARAM_INT
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":image",
             $this->image
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":status",
             $this->status
         );
@@ -150,11 +152,22 @@ class Product
         return $stmt->execute();
     }
 
-
-    // =========================================
-    // UPDATE PRODUCT
-    // =========================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE PRODUCT
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    | STOCK IS NOT UPDATED HERE.
+    |
+    | Edit Product can only change:
+    | - name
+    | - description
+    | - price
+    | - image
+    | - status
+    |
+    */
     public function update(): bool
     {
         $query = "
@@ -163,7 +176,6 @@ class Product
                 product_name = :product_name,
                 description = :description,
                 price = :price,
-                stock = :stock,
                 image = :image,
                 status = :status
             WHERE id = :id
@@ -171,38 +183,32 @@ class Product
 
         $stmt = $this->conn->prepare($query);
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":product_name",
             $this->product_name
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":description",
             $this->description
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":price",
             $this->price
         );
 
-        $stmt->bindParam(
-            ":stock",
-            $this->stock,
-            PDO::PARAM_INT
-        );
-
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":image",
             $this->image
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":status",
             $this->status
         );
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":id",
             $this->id,
             PDO::PARAM_INT
@@ -211,11 +217,51 @@ class Product
         return $stmt->execute();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | ADD STOCK
+    |--------------------------------------------------------------------------
+    |
+    | This is the ONLY method used to increase existing stock.
+    |
+    */
+    public function addStock(
+        int $id,
+        int $quantity
+    ): bool {
 
-    // =========================================
-    // DELETE PRODUCT
-    // =========================================
+        if ($id <= 0 || $quantity <= 0) {
+            return false;
+        }
 
+        $query = "
+            UPDATE products
+            SET stock = stock + :quantity
+            WHERE id = :id
+        ";
+
+        $stmt = $this->conn->prepare($query);
+
+        $stmt->bindValue(
+            ":quantity",
+            $quantity,
+            PDO::PARAM_INT
+        );
+
+        $stmt->bindValue(
+            ":id",
+            $id,
+            PDO::PARAM_INT
+        );
+
+        return $stmt->execute();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE PRODUCT
+    |--------------------------------------------------------------------------
+    */
     public function delete(int $id): bool
     {
         $query = "
@@ -225,7 +271,7 @@ class Product
 
         $stmt = $this->conn->prepare($query);
 
-        $stmt->bindParam(
+        $stmt->bindValue(
             ":id",
             $id,
             PDO::PARAM_INT

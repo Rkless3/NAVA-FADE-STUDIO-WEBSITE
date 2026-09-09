@@ -12,7 +12,7 @@ if (
     !isset($_SESSION["admin_logged_in"]) ||
     $_SESSION["admin_logged_in"] !== true
 ) {
-    header("Location: login.php");
+    header("Location: ../login.php");
     exit;
 }
 
@@ -276,9 +276,7 @@ $stockAttention =
 
             font-family:
                 Bahnschrift,
-                "Segoe UI",
-                Arial,
-                sans-serif;
+                Myriad Pro; 
 
             background:
                 linear-gradient(
@@ -1222,6 +1220,43 @@ $stockAttention =
 
         }
 
+        .stock-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 8px 12px;
+
+            background: #b8862c;
+
+            color: #0e1423;
+
+            border: none;
+
+            border-radius: 6px;
+
+            text-decoration: none;
+
+            font-size: 12px;
+
+            font-weight: bold;
+
+            cursor: pointer;
+
+            transition: 0.3s ease;
+        }
+
+
+        .stock-btn:hover {
+
+            background: #d4a33a;
+
+            transform: translateY(-1px);
+        }
+
 
         /* =====================================================
            EMPTY STATE
@@ -1671,7 +1706,7 @@ $stockAttention =
 
 <div class="admin-layout">
 
-<?php include "sidebar.php"; ?>
+<?php include "../admin/sidebar.php"; ?>
 
 <!-- =================================================
          MAIN CONTENT
@@ -2094,11 +2129,22 @@ $stockAttention =
 
                                 <td>
 
-                                    <div class="actions">
+                                   <div class="actions">
+
+                                        <?php if ((int) $item["stock"] === 0): ?>
+
+                                            <a
+                                                href="add-stock.php?id=<?= (int) $item["id"] ?>"
+                                                class="stock-btn"
+                                            >
+                                                + Add Stock
+                                            </a>
+
+                                        <?php endif; ?>
 
 
                                         <a
-                                            href="edit-product.php?id=<?= $item["id"] ?>"
+                                            href="edit-product.php?id=<?= (int) $item["id"] ?>"
                                             class="edit-btn"
                                         >
                                             Edit
@@ -2106,7 +2152,7 @@ $stockAttention =
 
 
                                         <a
-                                            href="products.php?delete=<?= $item["id"] ?>"
+                                            href="products.php?delete=<?= (int) $item["id"] ?>"
                                             class="delete-btn"
                                             onclick="
                                                 return confirm(
@@ -2117,9 +2163,7 @@ $stockAttention =
                                             Delete
                                         </a>
 
-
                                     </div>
-
                                 </td>
 
 

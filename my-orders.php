@@ -2,6 +2,7 @@
 
 session_start();
 
+
 /* =========================================
    CHECK IF CUSTOMER IS LOGGED IN
 ========================================= */
@@ -51,6 +52,7 @@ $orders = $order_query->fetchAll(PDO::FETCH_ASSOC);
 ========================================= */
 
 $order_items = [];
+$order_payments = [];
 
 if (!empty($orders)) {
 
@@ -72,6 +74,23 @@ if (!empty($orders)) {
         ORDER BY oi.id ASC
     ");
 
+    /* =========================================
+       GET PAYMENT DETAILS FOR EACH ORDER
+    ========================================= */
+
+    $payment_query = $db->prepare("
+        SELECT
+            payment_method,
+            reference_number,
+            amount,
+            status,
+            paid_at
+        FROM payments
+        WHERE order_id = :order_id
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+
     foreach ($orders as $order) {
 
         $item_query->execute([
@@ -80,70 +99,19 @@ if (!empty($orders)) {
 
         $order_items[$order["id"]] =
             $item_query->fetchAll(PDO::FETCH_ASSOC);
-    }
-}
 
+        $payment_query->execute([
+            ":order_id" => $order["id"]
+        ]);
 
-/* =========================================
-   HELPER FUNCTIONS
-========================================= */
+        $payment = $payment_query->fetch(PDO::FETCH_ASSOC);
 
-function getStatusClass(string $status): string
-{
-    return strtolower(str_replace(" ", "-", $status));
-}
-
-
-function getStatusIcon(string $status): string
-{
-    switch ($status) {
-
-        case "Pending":
-            return "🕐";
-
-        case "Confirmed":
-            return "✓";
-
-        case "Processing":
-            return "⚙";
-
-        case "Completed":
-            return "✓";
-
-        case "Cancelled":
-            return "×";
-
-        default:
-            return "•";
-    }
-}
-
-
-function getStatusDescription(string $status): string
-{
-    switch ($status) {
-
-        case "Pending":
-            return "Your order has been received and is waiting for confirmation.";
-
-        case "Confirmed":
-            return "Your order has been confirmed by NAVA Fade Studio.";
-
-        case "Processing":
-            return "Your order is currently being prepared.";
-
-        case "Completed":
-            return "Your order has been completed successfully.";
-
-        case "Cancelled":
-            return "This order has been cancelled.";
-
-        default:
-            return "Your order status has been updated.";
+        $order_payments[$order["id"]] = $payment ?: null;
     }
 }
 
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -164,114 +132,57 @@ function getStatusDescription(string $status): string
         href="assets/css/style.css"
     >
 
+
     <style>
 
         /* =========================================
            MY ORDERS PAGE
         ========================================= */
 
-        * {
-            box-sizing: border-box;
-        }
-
-
-        body {
-            margin: 0;
-            background: #0e1423;
-        }
-
-
         .orders-page {
-
             min-height: 100vh;
 
-            padding: 125px 20px 80px;
+            padding: 140px 20px 80px;
 
             background:
                 linear-gradient(
-                    rgba(14, 20, 35, 0.94)
+                    rgba(14, 20, 35, 0.93),
+                    rgba(14, 20, 35, 0.93)
                 ),
-                url("assets/images/pattern3.png");
+                url("assets/images/pattern2.png");
 
             background-size: 300px;
-
-            background-attachment: fixed;
         }
 
 
         .orders-container {
-
-            width: 100%;
-
-            max-width: 1120px;
-
+            max-width: 1100px;
             margin: 0 auto;
         }
 
 
         /* =========================================
-           PAGE HEADER
+           HEADER
         ========================================= */
 
         .orders-header {
-
             text-align: center;
-
-            margin-bottom: 50px;
+            margin-bottom: 45px;
         }
-
-
-        .orders-eyebrow {
-
-            display: inline-block;
-
-            color: #c8942f;
-
-            font-size: 12px;
-
-            font-weight: 700;
-
-            letter-spacing: 4px;
-
-            text-transform: uppercase;
-
-            margin-bottom: 12px;
-        }
-
 
         .orders-header h1 {
-
-            margin: 0;
-
             color: #ffffff;
-
-            font-size: clamp(38px, 5vw, 58px);
-
-            line-height: 1.1;
-
-            font-weight: 800;
-
-            letter-spacing: -1px;
+            font-size: 42px;
+            margin-bottom: 8px;
         }
 
-
         .orders-header h1 span {
-
             color: #c8942f;
         }
 
-
         .orders-header p {
-
-            margin: 15px auto 0;
-
-            max-width: 600px;
-
-            color: #aeb7c8;
-
+            color: #aeb5c3;
             font-size: 16px;
-
-            line-height: 1.6;
         }
 
 
@@ -281,64 +192,18 @@ function getStatusDescription(string $status): string
 
         .order-card {
 
-            position: relative;
+            background: rgba(14, 20, 35, 0.96);
 
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(18, 27, 45, 0.98),
-                    rgba(10, 16, 29, 0.98)
-                );
+            border: 1px solid #b8862c;
 
-            border: 1px solid rgba(200, 148, 47, 0.65);
+            border-radius: 15px;
 
-            border-radius: 18px;
+            padding: 25px;
 
-            padding: 30px;
-
-            margin-bottom: 28px;
+            margin-bottom: 25px;
 
             box-shadow:
-                0 18px 45px rgba(0, 0, 0, 0.30);
-
-            overflow: hidden;
-
-            transition:
-                transform 0.25s ease,
-                box-shadow 0.25s ease,
-                border-color 0.25s ease;
-        }
-
-
-        .order-card::before {
-
-            content: "";
-
-            position: absolute;
-
-            top: 0;
-            left: 0;
-
-            width: 100%;
-            height: 3px;
-
-            background: linear-gradient(
-                90deg,
-                transparent,
-                #c8942f,
-                transparent
-            );
-        }
-
-
-        .order-card:hover {
-
-            transform: translateY(-3px);
-
-            border-color: #c8942f;
-
-            box-shadow:
-                0 22px 55px rgba(0, 0, 0, 0.40);
+                0 10px 30px rgba(0, 0, 0, 0.25);
         }
 
 
@@ -352,11 +217,13 @@ function getStatusDescription(string $status): string
 
             justify-content: space-between;
 
-            align-items: flex-start;
+            align-items: center;
 
-            gap: 25px;
+            gap: 20px;
 
-            padding-bottom: 24px;
+            margin-bottom: 20px;
+
+            padding-bottom: 18px;
 
             border-bottom:
                 1px solid
@@ -364,400 +231,87 @@ function getStatusDescription(string $status): string
         }
 
 
-        .order-heading {
-
-            display: flex;
-
-            flex-direction: column;
-
-            gap: 7px;
-        }
-
-
-        .order-label {
-
-            color: #c8942f;
-
-            font-size: 11px;
-
-            font-weight: 700;
-
-            letter-spacing: 2px;
-
-            text-transform: uppercase;
-        }
-
-
         .order-number {
 
             color: #ffffff;
 
-            font-size: 22px;
+            font-size: 19px;
 
-            font-weight: 800;
+            font-weight: bold;
         }
 
 
         .order-date {
 
-            color: #9fa9bb;
+            color: #9fa7b8;
 
             font-size: 14px;
-        }
 
-
-        .order-status-wrapper {
-
-            display: flex;
-
-            flex-direction: column;
-
-            align-items: flex-end;
-
-            gap: 8px;
-        }
-
-
-        .order-status {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-            padding: 9px 16px;
-
-            border-radius: 30px;
-
-            font-size: 13px;
-
-            font-weight: 700;
-
-            border: 1px solid transparent;
-
-            white-space: nowrap;
-        }
-
-
-        .status-icon {
-
-            width: 19px;
-
-            height: 19px;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            border-radius: 50%;
-
-            font-size: 11px;
-
-            font-weight: 900;
+            margin-top: 5px;
         }
 
 
         /* =========================================
-           STATUS COLORS
+           STATUS
         ========================================= */
 
-        .status-pending {
+        .order-status {
 
-            color: #ffc107;
+            display: inline-block;
 
-            background: rgba(255, 193, 7, 0.10);
+            padding: 8px 15px;
 
-            border-color: rgba(255, 193, 7, 0.45);
+            border-radius: 20px;
+
+            font-size: 13px;
+
+            font-weight: bold;
         }
 
 
-        .status-pending .status-icon {
+        .status-pending {
 
-            background: rgba(255, 193, 7, 0.20);
+            background: rgba(255, 193, 7, 0.15);
+
+            color: #ffc107;
         }
 
 
         .status-confirmed {
 
-            color: #36c7d8;
+            background: rgba(0, 188, 212, 0.15);
 
-            background: rgba(54, 199, 216, 0.10);
-
-            border-color: rgba(54, 199, 216, 0.45);
-        }
-
-
-        .status-confirmed .status-icon {
-
-            background: rgba(54, 199, 216, 0.20);
+            color: #00bcd4;
         }
 
 
         .status-processing {
 
-            color: #55a9ff;
+            background: rgba(33, 150, 243, 0.15);
 
-            background: rgba(85, 169, 255, 0.10);
-
-            border-color: rgba(85, 169, 255, 0.45);
-        }
-
-
-        .status-processing .status-icon {
-
-            background: rgba(85, 169, 255, 0.20);
+            color: #2196f3;
         }
 
 
         .status-completed {
 
-            color: #62d47b;
+            background: rgba(76, 175, 80, 0.15);
 
-            background: rgba(98, 212, 123, 0.10);
-
-            border-color: rgba(98, 212, 123, 0.45);
-        }
-
-
-        .status-completed .status-icon {
-
-            background: rgba(98, 212, 123, 0.20);
+            color: #4caf50;
         }
 
 
         .status-cancelled {
 
-            color: #ff6565;
+            background: rgba(244, 67, 54, 0.15);
 
-            background: rgba(255, 101, 101, 0.10);
-
-            border-color: rgba(255, 101, 101, 0.45);
-        }
-
-
-        .status-cancelled .status-icon {
-
-            background: rgba(255, 101, 101, 0.20);
-        }
-
-
-        .status-description {
-
-            color: #7f8ba0;
-
-            font-size: 12px;
-
-            text-align: right;
-
-            max-width: 280px;
-
-            line-height: 1.4;
+            color: #f44336;
         }
 
 
         /* =========================================
-           ORDER PROGRESS
+           PRODUCT ITEM
         ========================================= */
-
-        .order-progress {
-
-            display: flex;
-
-            align-items: flex-start;
-
-            margin: 28px 0 12px;
-
-            position: relative;
-        }
-
-
-        .progress-line {
-
-            position: absolute;
-
-            top: 15px;
-
-            left: 10%;
-
-            right: 10%;
-
-            height: 2px;
-
-            background: rgba(255, 255, 255, 0.10);
-
-            z-index: 0;
-        }
-
-
-        .progress-line-active {
-
-            position: absolute;
-
-            top: 15px;
-
-            left: 10%;
-
-            height: 2px;
-
-            background: #c8942f;
-
-            z-index: 1;
-
-            transition: width 0.4s ease;
-        }
-
-
-        .progress-step {
-
-            position: relative;
-
-            z-index: 2;
-
-            width: 25%;
-
-            display: flex;
-
-            flex-direction: column;
-
-            align-items: center;
-
-            gap: 8px;
-
-            color: #707b8f;
-
-            font-size: 11px;
-
-            font-weight: 600;
-
-            text-align: center;
-        }
-
-
-        .progress-circle {
-
-            width: 30px;
-
-            height: 30px;
-
-            border-radius: 50%;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            background: #111a2c;
-
-            border: 2px solid #394255;
-
-            color: #707b8f;
-
-            font-size: 12px;
-
-            font-weight: 800;
-        }
-
-
-        .progress-step.active {
-
-            color: #dca63b;
-        }
-
-
-        .progress-step.active .progress-circle {
-
-            background: #c8942f;
-
-            border-color: #c8942f;
-
-            color: #0e1423;
-
-            box-shadow:
-                0 0 0 5px rgba(200, 148, 47, 0.10);
-        }
-
-
-        .progress-step.completed {
-
-            color: #c8942f;
-        }
-
-
-        .progress-step.completed .progress-circle {
-
-            background: #c8942f;
-
-            border-color: #c8942f;
-
-            color: #0e1423;
-        }
-
-
-        .progress-cancelled {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            margin: 25px 0 5px;
-
-            padding: 14px;
-
-            border-radius: 10px;
-
-            background: rgba(255, 101, 101, 0.07);
-
-            border: 1px solid rgba(255, 101, 101, 0.20);
-
-            color: #ff7777;
-
-            font-size: 13px;
-
-            font-weight: 600;
-        }
-
-
-        /* =========================================
-           PRODUCTS
-        ========================================= */
-
-        .products-heading {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            margin-top: 25px;
-
-            margin-bottom: 5px;
-        }
-
-
-        .products-heading span:first-child {
-
-            color: #ffffff;
-
-            font-size: 14px;
-
-            font-weight: 700;
-        }
-
-
-        .items-count {
-
-            color: #8d98aa;
-
-            font-size: 12px;
-        }
-
 
         .order-item {
 
@@ -765,15 +319,13 @@ function getStatusDescription(string $status): string
 
             align-items: center;
 
-            gap: 20px;
+            gap: 18px;
 
-            padding: 20px 0;
+            padding: 15px 0;
 
             border-bottom:
                 1px solid
-                rgba(255, 255, 255, 0.07);
-
-            transition: padding 0.2s ease;
+                rgba(255, 255, 255, 0.06);
         }
 
 
@@ -783,39 +335,19 @@ function getStatusDescription(string $status): string
         }
 
 
-        .order-item:hover {
-
-            padding-left: 5px;
-
-            padding-right: 5px;
-        }
-
-
-        /* =========================================
-           PRODUCT IMAGE
-        ========================================= */
-
         .order-item-image {
 
-            width: 86px;
+            width: 75px;
 
-            height: 86px;
+            height: 75px;
 
-            flex-shrink: 0;
-
-            border-radius: 13px;
+            border-radius: 10px;
 
             overflow: hidden;
 
-            background: #ffffff;
+            background: #151d30;
 
-            border: 1px solid rgba(200, 148, 47, 0.35);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
+            flex-shrink: 0;
         }
 
 
@@ -826,28 +358,12 @@ function getStatusDescription(string $status): string
             height: 100%;
 
             object-fit: cover;
-
-            display: block;
-
-            transition: transform 0.3s ease;
         }
 
-
-        .order-item:hover .order-item-image img {
-
-            transform: scale(1.05);
-        }
-
-
-        /* =========================================
-           PRODUCT INFORMATION
-        ========================================= */
 
         .order-item-info {
 
             flex: 1;
-
-            min-width: 0;
         }
 
 
@@ -855,39 +371,128 @@ function getStatusDescription(string $status): string
 
             color: #ffffff;
 
-            font-size: 17px;
+            font-size: 16px;
 
-            font-weight: 700;
+            font-weight: bold;
 
-            margin-bottom: 7px;
+            margin-bottom: 5px;
         }
 
 
         .order-item-details {
 
-            color: #929db0;
+            color: #9fa7b8;
 
-            font-size: 13px;
-
-            line-height: 1.5;
-        }
-
-
-        .order-item-details strong {
-
-            color: #c8942f;
+            font-size: 14px;
         }
 
 
         .order-item-subtotal {
 
-            color: #dca63b;
+            color: #d19a2a;
 
-            font-size: 17px;
+            font-weight: bold;
 
-            font-weight: 800;
+            font-size: 16px;
+        }
 
-            white-space: nowrap;
+
+        /* =========================================
+           PAYMENT INFORMATION
+        ========================================= */
+
+        .order-payment {
+            margin-top: 20px;
+            padding: 18px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(200, 148, 47, 0.25);
+        }
+
+        .order-payment-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 14px;
+        }
+
+        .order-payment-title h3 {
+            color: #ffffff;
+            font-size: 15px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .payment-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .payment-detail {
+            padding: 12px 14px;
+            border-radius: 9px;
+            background: rgba(14, 20, 35, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .payment-detail-label {
+            display: block;
+            color: #8f98aa;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            margin-bottom: 5px;
+        }
+
+        .payment-detail-value {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .payment-method {
+            color: #d19a2a;
+        }
+
+        .payment-status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .payment-pending {
+            background: rgba(255, 193, 7, 0.15);
+            color: #ffc107;
+        }
+
+        .payment-paid {
+            background: rgba(76, 175, 80, 0.15);
+            color: #4caf50;
+        }
+
+        .payment-cancelled,
+        .payment-failed {
+            background: rgba(244, 67, 54, 0.15);
+            color: #f44336;
+        }
+
+        .payment-note {
+            color: #8f98aa;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        .order-locked {
+            margin-left: 6px;
+            font-size: 12px;
+            opacity: 0.85;
         }
 
 
@@ -899,63 +504,37 @@ function getStatusDescription(string $status): string
 
             display: flex;
 
-            justify-content: space-between;
+            justify-content: flex-end;
 
             align-items: center;
 
-            gap: 20px;
+            margin-top: 20px;
 
-            margin-top: 10px;
-
-            padding-top: 24px;
+            padding-top: 18px;
 
             border-top:
                 1px solid
-                rgba(255, 255, 255, 0.10);
-        }
-
-
-        .order-summary-label {
-
-            color: #8994a7;
-
-            font-size: 12px;
-
-            text-transform: uppercase;
-
-            letter-spacing: 1.5px;
-
-            font-weight: 700;
+                rgba(255, 255, 255, 0.08);
         }
 
 
         .order-total {
 
-            display: flex;
-
-            align-items: center;
-
-            gap: 12px;
-        }
-
-
-        .order-total-label {
-
             color: #ffffff;
 
-            font-size: 15px;
+            font-size: 17px;
 
-            font-weight: 700;
+            font-weight: bold;
         }
 
 
-        .order-total-price {
+        .order-total span {
 
-            color: #e0a936;
+            color: #d19a2a;
 
-            font-size: 25px;
+            font-size: 21px;
 
-            font-weight: 900;
+            margin-left: 8px;
         }
 
 
@@ -967,83 +546,43 @@ function getStatusDescription(string $status): string
 
             text-align: center;
 
-            padding: 75px 25px;
+            padding: 70px 20px;
 
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(18, 27, 45, 0.98),
-                    rgba(10, 16, 29, 0.98)
-                );
+            background: rgba(14, 20, 35, 0.96);
 
-            border:
-                1px solid
-                rgba(200, 148, 47, 0.60);
+            border: 1px solid #b8862c;
 
-            border-radius: 18px;
-
-            box-shadow:
-                0 18px 45px rgba(0, 0, 0, 0.30);
+            border-radius: 15px;
         }
 
 
         .empty-orders-icon {
 
-            width: 75px;
+            font-size: 50px;
 
-            height: 75px;
-
-            margin: 0 auto 20px;
-
-            border-radius: 50%;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            background: rgba(200, 148, 47, 0.10);
-
-            border: 1px solid rgba(200, 148, 47, 0.30);
-
-            font-size: 32px;
+            margin-bottom: 15px;
         }
 
 
         .empty-orders h2 {
 
-            margin: 0 0 10px;
-
             color: #ffffff;
 
-            font-size: 25px;
+            margin-bottom: 10px;
         }
 
 
         .empty-orders p {
 
-            max-width: 500px;
+            color: #9fa7b8;
 
-            margin: 0 auto 25px;
-
-            color: #8f9bad;
-
-            font-size: 14px;
-
-            line-height: 1.6;
+            margin-bottom: 25px;
         }
 
 
         .shop-btn {
 
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            gap: 8px;
+            display: inline-block;
 
             background: #c8942f;
 
@@ -1055,21 +594,15 @@ function getStatusDescription(string $status): string
 
             border-radius: 8px;
 
-            font-weight: 800;
+            font-weight: bold;
 
-            font-size: 13px;
-
-            transition:
-                background 0.25s ease,
-                transform 0.25s ease;
+            transition: 0.3s;
         }
 
 
         .shop-btn:hover {
 
             background: #e0aa3b;
-
-            transform: translateY(-2px);
         }
 
 
@@ -1087,42 +620,17 @@ function getStatusDescription(string $status): string
 
         .orders-back a {
 
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-            padding: 11px 18px;
-
-            border: 1px solid rgba(200, 148, 47, 0.45);
-
-            border-radius: 8px;
-
             color: #c8942f;
-
-            background: rgba(14, 20, 35, 0.50);
 
             text-decoration: none;
 
-            font-size: 13px;
-
-            font-weight: 700;
-
-            transition:
-                background 0.25s ease,
-                border-color 0.25s ease,
-                transform 0.25s ease;
+            font-weight: bold;
         }
 
 
         .orders-back a:hover {
 
-            background: rgba(200, 148, 47, 0.10);
-
-            border-color: #c8942f;
-
-            transform: translateY(-2px);
+            text-decoration: underline;
         }
 
 
@@ -1130,286 +638,62 @@ function getStatusDescription(string $status): string
            RESPONSIVE
         ========================================= */
 
-        @media (max-width: 800px) {
-
-            .orders-page {
-
-                padding: 110px 15px 60px;
-
-                background-size: 240px;
-            }
-
-
-            .order-card {
-
-                padding: 22px;
-
-                border-radius: 15px;
-            }
-
-
-            .order-top {
-
-                flex-direction: column;
-
-                gap: 15px;
-            }
-
-
-            .order-status-wrapper {
-
-                align-items: flex-start;
-            }
-
-
-            .status-description {
-
-                text-align: left;
-
-                max-width: 100%;
-            }
-
-
-            .order-progress {
-
-                margin-top: 25px;
-            }
-
-
-            .progress-step {
-
-                font-size: 10px;
-            }
-
-
-            .order-item {
-
-                gap: 14px;
-            }
-
-
-            .order-item-image {
-
-                width: 72px;
-
-                height: 72px;
-            }
-
-
-            .order-item-name {
-
-                font-size: 15px;
-            }
-
-
-            .order-item-subtotal {
-
-                font-size: 15px;
-            }
-        }
-
-
         @media (max-width: 600px) {
 
             .orders-page {
 
-                padding: 100px 12px 50px;
-            }
-
-
-            .orders-header {
-
-                margin-bottom: 35px;
+                padding: 120px 15px 60px;
             }
 
 
             .orders-header h1 {
 
-                font-size: 38px;
-            }
-
-
-            .orders-header p {
-
-                font-size: 14px;
+                font-size: 32px;
             }
 
 
             .order-card {
 
                 padding: 18px;
-
-                margin-bottom: 20px;
             }
 
 
-            .order-number {
+            .order-top {
 
-                font-size: 19px;
-            }
+                align-items: flex-start;
 
-
-            .order-date {
-
-                font-size: 12px;
-            }
-
-
-            .order-status {
-
-                font-size: 12px;
-
-                padding: 8px 13px;
-            }
-
-
-            .order-progress {
-
-                margin-left: -5px;
-
-                margin-right: -5px;
-            }
-
-
-            .progress-circle {
-
-                width: 27px;
-
-                height: 27px;
-
-                font-size: 10px;
-            }
-
-
-            .progress-line,
-            .progress-line-active {
-
-                top: 13px;
-            }
-
-
-            .progress-step {
-
-                font-size: 9px;
+                flex-direction: column;
             }
 
 
             .order-item {
 
-                display: grid;
-
-                grid-template-columns: 65px 1fr;
-
-                gap: 12px;
-
-                padding: 17px 0;
+                align-items: flex-start;
             }
 
 
             .order-item-image {
 
-                width: 65px;
+                width: 60px;
 
-                height: 65px;
-
-                grid-row: span 2;
-            }
-
-
-            .order-item-info {
-
-                width: 100%;
-            }
-
-
-            .order-item-name {
-
-                font-size: 14px;
-
-                margin-bottom: 4px;
-            }
-
-
-            .order-item-details {
-
-                font-size: 12px;
+                height: 60px;
             }
 
 
             .order-item-subtotal {
 
-                grid-column: 2;
-
-                font-size: 15px;
-
-                margin-top: -5px;
+                font-size: 14px;
             }
 
+            .payment-grid {
+                grid-template-columns: 1fr;
+            }
 
-            .order-bottom {
-
-                align-items: flex-end;
-
+            .order-payment-title {
+                align-items: flex-start;
                 flex-direction: column;
-
-                gap: 8px;
             }
 
-
-            .order-total {
-
-                width: 100%;
-
-                justify-content: space-between;
-            }
-
-
-            .order-total-price {
-
-                font-size: 23px;
-            }
-
-
-            .empty-orders {
-
-                padding: 55px 18px;
-            }
-        }
-
-
-        @media (max-width: 400px) {
-
-            .orders-header h1 {
-
-                font-size: 34px;
-            }
-
-
-            .order-card {
-
-                padding: 15px;
-            }
-
-
-            .progress-step {
-
-                font-size: 8px;
-            }
-
-
-            .progress-circle {
-
-                width: 24px;
-
-                height: 24px;
-            }
-
-
-            .progress-line,
-            .progress-line-active {
-
-                top: 12px;
-            }
         }
 
     </style>
@@ -1426,22 +710,17 @@ function getStatusDescription(string $status): string
 
 
         <!-- =========================================
-             PAGE HEADER
+             HEADER
         ========================================= -->
 
         <div class="orders-header">
-
-            <div class="orders-eyebrow">
-                NAVA FADE STUDIO
-            </div>
 
             <h1>
                 My <span>Orders</span>
             </h1>
 
             <p>
-                Track your grooming products and stay updated
-                with the status of every order you've placed.
+                View your purchased products and order status.
             </p>
 
         </div>
@@ -1465,15 +744,15 @@ function getStatusDescription(string $status): string
                 </h2>
 
                 <p>
-                    You haven't purchased any grooming products
-                    from NAVA Fade Studio yet.
+                    You haven't purchased any products from
+                    NAVA Fade Studio yet.
                 </p>
 
                 <a
                     href="shop.php"
                     class="shop-btn"
                 >
-                    🛒 SHOP PRODUCTS
+                    SHOP NOW
                 </a>
 
             </div>
@@ -1488,47 +767,24 @@ function getStatusDescription(string $status): string
 
             <?php foreach ($orders as $order): ?>
 
-                <?php
-
-                $status = $order["status"];
-
-                $statusClass = getStatusClass($status);
-
-                $statusIcon = getStatusIcon($status);
-
-                $items = $order_items[$order["id"]] ?? [];
-
-                $itemCount = 0;
-
-                foreach ($items as $item) {
-                    $itemCount += (int) $item["quantity"];
-                }
-
-                ?>
-
-
                 <div class="order-card">
 
 
-                    <!-- =================================
-                         ORDER HEADER
-                    ================================== -->
+                    <!-- ORDER HEADER -->
 
                     <div class="order-top">
 
-                        <div class="order-heading">
-
-                            <div class="order-label">
-                                Order Details
-                            </div>
+                        <div>
 
                             <div class="order-number">
-                                Order #<?= (int) $order["id"] ?>
+
+                                Order
+                                #<?= (int) $order["id"] ?>
+
                             </div>
 
                             <div class="order-date">
 
-                                Placed on
                                 <?= date(
                                     "F j, Y • h:i A",
                                     strtotime($order["created_at"])
@@ -1539,209 +795,35 @@ function getStatusDescription(string $status): string
                         </div>
 
 
-                        <div class="order-status-wrapper">
-
-                            <span
-                                class="order-status status-<?= htmlspecialchars($statusClass) ?>"
-                            >
-
-                                <span class="status-icon">
-                                    <?= htmlspecialchars($statusIcon) ?>
-                                </span>
-
-                                <?= htmlspecialchars($status) ?>
-
-                            </span>
-
-
-                            <div class="status-description">
-
-                                <?= htmlspecialchars(
-                                    getStatusDescription($status)
-                                ) ?>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- =================================
-                         ORDER PROGRESS
-                    ================================== -->
-
-                    <?php if ($status !== "Cancelled"): ?>
-
                         <?php
 
-                        $progressMap = [
-                            "Pending" => 1,
-                            "Confirmed" => 2,
-                            "Processing" => 3,
-                            "Completed" => 4
-                        ];
-
-                        $currentStep =
-                            $progressMap[$status] ?? 1;
-
-                        $activeWidth =
-                            (($currentStep - 1) / 3) * 80;
+                        $statusClass =
+                            strtolower($order["status"]);
 
                         ?>
 
-                        <div class="order-progress">
 
-                            <div class="progress-line"></div>
+                        <span
+                            class="order-status status-<?= htmlspecialchars($statusClass) ?>"
+                        >
 
-                            <div
-                                class="progress-line-active"
-                                style="width: <?= $activeWidth ?>%;"
-                            ></div>
+                            <?= htmlspecialchars($order["status"]) ?>
 
-
-                            <!-- STEP 1 -->
-
-                            <div
-                                class="
-                                    progress-step
-                                    <?= $currentStep >= 1
-                                        ? "completed"
-                                        : "" ?>
-                                    <?= $currentStep === 1
-                                        ? "active"
-                                        : "" ?>
-                                "
-                            >
-
-                                <div class="progress-circle">
-                                    1
-                                </div>
-
-                                <span>
-                                    Pending
-                                </span>
-
-                            </div>
-
-
-                            <!-- STEP 2 -->
-
-                            <div
-                                class="
-                                    progress-step
-                                    <?= $currentStep >= 2
-                                        ? "completed"
-                                        : "" ?>
-                                    <?= $currentStep === 2
-                                        ? "active"
-                                        : "" ?>
-                                "
-                            >
-
-                                <div class="progress-circle">
-                                    2
-                                </div>
-
-                                <span>
-                                    Confirmed
-                                </span>
-
-                            </div>
-
-
-                            <!-- STEP 3 -->
-
-                            <div
-                                class="
-                                    progress-step
-                                    <?= $currentStep >= 3
-                                        ? "completed"
-                                        : "" ?>
-                                    <?= $currentStep === 3
-                                        ? "active"
-                                        : "" ?>
-                                "
-                            >
-
-                                <div class="progress-circle">
-                                    3
-                                </div>
-
-                                <span>
-                                    Processing
-                                </span>
-
-                            </div>
-
-
-                            <!-- STEP 4 -->
-
-                            <div
-                                class="
-                                    progress-step
-                                    <?= $currentStep >= 4
-                                        ? "completed"
-                                        : "" ?>
-                                    <?= $currentStep === 4
-                                        ? "active"
-                                        : "" ?>
-                                "
-                            >
-
-                                <div class="progress-circle">
-                                    4
-                                </div>
-
-                                <span>
-                                    Completed
-                                </span>
-
-                            </div>
-
-                        </div>
-
-                    <?php else: ?>
-
-                        <div class="progress-cancelled">
-
-                            ✕ &nbsp;
-
-                            This order has been cancelled.
-
-                        </div>
-
-                    <?php endif; ?>
-
-
-                    <!-- =================================
-                         PRODUCTS HEADER
-                    ================================== -->
-
-                    <div class="products-heading">
-
-                        <span>
-                            Products
-                        </span>
-
-                        <span class="items-count">
-
-                            <?= $itemCount ?>
-
-                            <?= $itemCount === 1
-                                ? "item"
-                                : "items" ?>
+                            <?php if (in_array($order["status"], ["Completed", "Cancelled"], true)): ?>
+                                <span class="order-locked" title="Final status">🔒</span>
+                            <?php endif; ?>
 
                         </span>
 
                     </div>
 
 
-                    <!-- =================================
-                         PRODUCTS
-                    ================================== -->
+                    <!-- PRODUCTS -->
 
-                    <?php foreach ($items as $item): ?>
+                    <?php foreach (
+                        $order_items[$order["id"]] ?? []
+                        as $item
+                    ): ?>
 
                         <div class="order-item">
 
@@ -1756,12 +838,6 @@ function getStatusDescription(string $status): string
                                         src="assets/images/<?= htmlspecialchars($item["image"]) ?>"
                                         alt="<?= htmlspecialchars($item["product_name"]) ?>"
                                     >
-
-                                <?php else: ?>
-
-                                    <span>
-                                        🛍️
-                                    </span>
 
                                 <?php endif; ?>
 
@@ -1788,15 +864,9 @@ function getStatusDescription(string $status): string
                                         2
                                     ) ?>
 
-                                    each
+                                    ×
 
-                                    &nbsp; • &nbsp;
-
-                                    Quantity:
-
-                                    <strong>
-                                        <?= (int) $item["quantity"] ?>
-                                    </strong>
+                                    <?= (int) $item["quantity"] ?>
 
                                 </div>
 
@@ -1820,28 +890,101 @@ function getStatusDescription(string $status): string
                     <?php endforeach; ?>
 
 
-                    <!-- =================================
-                         ORDER TOTAL
-                    ================================== -->
+                    <!-- PAYMENT INFORMATION -->
+
+                    <?php $payment = $order_payments[$order["id"]] ?? null; ?>
+
+                    <div class="order-payment">
+
+                        <div class="order-payment-title">
+                            <h3>Payment Information</h3>
+                        </div>
+
+                        <?php if ($payment): ?>
+
+                            <?php
+                            $paymentStatusClass = strtolower($payment["status"]);
+                            ?>
+
+                            <div class="payment-grid">
+
+                                <div class="payment-detail">
+                                    <span class="payment-detail-label">Payment Method</span>
+                                    <span class="payment-detail-value payment-method">
+                                        <?= htmlspecialchars($payment["payment_method"]) ?>
+                                    </span>
+                                </div>
+
+                                <?php if ($payment["payment_method"] === "GCash"): ?>
+                                    <div class="payment-detail">
+                                        <span class="payment-detail-label">GCash Reference</span>
+                                        <span class="payment-detail-value">
+                                            <?= !empty($payment["reference_number"])
+                                                ? htmlspecialchars($payment["reference_number"])
+                                                : "Not provided" ?>
+                                        </span>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="payment-detail">
+                                        <span class="payment-detail-label">Reference</span>
+                                        <span class="payment-detail-value">
+                                            Not applicable
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="payment-detail">
+                                    <span class="payment-detail-label">Payment Status</span>
+                                    <span class="payment-detail-value">
+                                        <span class="payment-status payment-<?= htmlspecialchars($paymentStatusClass) ?>">
+                                            <?= htmlspecialchars($payment["status"]) ?>
+                                        </span>
+                                    </span>
+                                </div>
+
+                                <div class="payment-detail">
+                                    <span class="payment-detail-label">Payment Amount</span>
+                                    <span class="payment-detail-value payment-method">
+                                        ₱<?= number_format((float) $payment["amount"], 2) ?>
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <?php if ($payment["status"] === "Pending"): ?>
+                                <div class="payment-note">
+                                    Your payment is awaiting verification by NAVA Fade Studio.
+                                </div>
+                            <?php elseif ($payment["status"] === "Paid" && !empty($payment["paid_at"])): ?>
+                                <div class="payment-note">
+                                    Payment verified on <?= date("F j, Y • h:i A", strtotime($payment["paid_at"])) ?>.
+                                </div>
+                            <?php elseif ($payment["status"] === "Cancelled"): ?>
+                                <div class="payment-note">
+                                    This payment was cancelled together with the order.
+                                </div>
+                            <?php endif; ?>
+
+                        <?php else: ?>
+
+                            <div class="payment-note">
+                                Payment information is not available for this order yet.
+                            </div>
+
+                        <?php endif; ?>
+
+                    </div>
+
+
+                    <!-- ORDER TOTAL -->
 
                     <div class="order-bottom">
 
-                        <div>
-
-                            <div class="order-summary-label">
-                                Order Summary
-                            </div>
-
-                        </div>
-
-
                         <div class="order-total">
 
-                            <span class="order-total-label">
-                                Total
-                            </span>
+                            Total:
 
-                            <span class="order-total-price">
+                            <span>
 
                                 ₱<?= number_format(
                                     (float) $order["total_amount"],
@@ -1857,16 +1000,13 @@ function getStatusDescription(string $status): string
 
                 </div>
 
-
             <?php endforeach; ?>
 
 
         <?php endif; ?>
 
 
-        <!-- =========================================
-             BACK TO HOME
-        ========================================= -->
+        <!-- BACK -->
 
         <div class="orders-back">
 

@@ -1,9 +1,49 @@
 <?php
-
 session_start();
 
-?>
+/* =========================================
+   CUSTOMER SESSION / PROFILE DATA
+========================================= */
 
+$customer_logged_in = isset($_SESSION["customer_id"]);
+$customer_name = $_SESSION["customer_name"] ?? "";
+$customer_email = $_SESSION["customer_email"] ?? "";
+
+$customer = null;
+$initials = "";
+
+if ($customer_logged_in) {
+
+    require_once "config/Database.php";
+
+    $database = new Database();
+    $db = $database->connect();
+
+    $customer_id = $_SESSION["customer_id"];
+
+    $customer_query = $db->prepare("
+        SELECT full_name, email
+        FROM customers
+        WHERE id = :id
+        LIMIT 1
+    ");
+
+    $customer_query->execute([
+        ":id" => $customer_id
+    ]);
+
+    $customer = $customer_query->fetch(PDO::FETCH_ASSOC);
+
+    if ($customer) {
+        $name_parts = preg_split('/\\s+/', trim($customer["full_name"]));
+
+        foreach (array_slice($name_parts, 0, 2) as $part) {
+            $initials .= strtoupper(substr($part, 0, 1));
+        }
+    }
+}
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -34,6 +74,13 @@ session_start();
         .blog-page {
             background: #f8f8f8;
             padding: 90px 8%;
+            font-family:
+                Bahnschrift,
+                "Myriad Pro",
+                Arial,
+                sans-serif;
+            background:
+                url("assets/images/pattern4.png");
         }
 
 
@@ -550,11 +597,7 @@ session_start();
 
     <div class="container navbar">
 
-
-        <a
-            href="index.php"
-            class="logo"
-        >
+        <a href="index.php" class="logo">
 
             <img
                 src="assets/images/logo.png"
@@ -566,7 +609,7 @@ session_start();
 
         <nav>
 
-            <a href="index.php">
+            <a href="index.php" class="active">
                 Home
             </a>
 
@@ -574,7 +617,7 @@ session_start();
                 About Us
             </a>
 
-            <a href="index.php#services">
+            <a href="#services">
                 Service
             </a>
 
@@ -586,73 +629,139 @@ session_start();
                 Shop
             </a>
 
-            <a
-                href="blog.php"
-                class="active"
-            >
+            <a href="blog.php">
                 Blog
             </a>
 
-            <a
-                href="book.php"
-                class="nav-button"
-            >
+            <a href="book.php" class="nav-button">
                 Book Now
             </a>
 
-
             <?php if (isset($_SESSION["customer_id"])): ?>
 
-                <div class="customer-menu">
+                <!-- CUSTOMER MENU -->
 
-                    <button
-                        class="customer-menu-btn"
-                        type="button"
-                        onclick="toggleCustomerMenu()"
-                    >
+            <div class="customer-menu">
 
-                        👤
-                        <?= htmlspecialchars(
-                            $_SESSION["customer_name"]
-                        ) ?>
+                <button
+                    class="customer-menu-btn"
+                    type="button"
+                    onclick="toggleCustomerMenu()"
+                >
 
-                        <span class="dropdown-arrow">
-                            ▼
+                    <span class="profile-avatar">
+
+                            <?= htmlspecialchars(
+                                $initials
+                            ) ?>
+
                         </span>
 
-                    </button>
+
+                    <span class="dropdown-arrow">
+                        ▼
+                    </span>
+
+                </button>
 
 
-                    <div
-                        class="customer-dropdown"
-                        id="customerDropdown"
+                <div
+                    class="customer-dropdown"
+                    id="customerDropdown"
+                >
+
+
+                    <a
+                        href="profile.php"
+                        class="customer-profile-card"
                     >
 
-                        <a href="my-orders.php">
-                            🛍️ My Orders
-                        </a>
+                        <span class="profile-avatar">
 
-                        <a href="appointments.php">
-                            📅 My Appointments
-                        </a>
+                            <?= htmlspecialchars(
+                                $initials
+                            ) ?>
 
-                        <a href="review.php">
-                            ⭐ Write a Review
-                        </a>
+                        </span>
 
-                        <div class="dropdown-divider"></div>
 
-                        <a
-                            href="logout.php"
-                            class="logout-link"
-                        >
-                            🚪 Logout
-                        </a>
+                        <span class="profile-details">
 
-                    </div>
+                            <strong>
+                                <?= htmlspecialchars(
+                                    $customer["full_name"]
+                                ) ?>
+                            </strong>
+
+
+                            <small>
+                                <?= htmlspecialchars(
+                                    $customer["email"]
+                                ) ?>
+                            </small>
+
+                        </span>
+
+                    </a>
+
+
+                    <div class="dropdown-divider"></div>
+
+
+                    <a
+                        href="my-orders.php"
+                        class="customer-dropdown-link"
+                    >
+                        <span class="dropdown-icon">
+                            🛍️
+                        </span>
+
+                        My Orders
+                    </a>
+
+
+                    <a
+                        href="appointments.php"
+                        class="customer-dropdown-link"
+                    >
+                        <span class="dropdown-icon">
+                            📅
+                        </span>
+
+                        My Appointments
+                    </a>
+
+
+                    <a
+                        href="review.php"
+                        class="customer-dropdown-link"
+                    >
+                        <span class="dropdown-icon">
+                            ⭐
+                        </span>
+
+                        Write a Review
+                    </a>
+
+
+                    <div class="dropdown-divider"></div>
+
+
+                    <a
+                        href="logout.php"
+                        class="customer-dropdown-link logout-link"
+                    >
+                        <span class="dropdown-icon">
+                            🚪
+                        </span>
+
+                        Logout
+                    </a>
+
 
                 </div>
 
+            </div>
 
             <?php else: ?>
 
@@ -664,7 +773,6 @@ session_start();
                 </a>
 
             <?php endif; ?>
-
 
         </nav>
 

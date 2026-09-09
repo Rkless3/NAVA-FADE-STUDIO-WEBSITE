@@ -914,7 +914,7 @@ if (
 
 <div class="admin-layout">
 
-<?php include "sidebar.php"; ?>
+<?php include "../admin/sidebar.php"; ?>
 
 <!-- =================================================
          MAIN CONTENT

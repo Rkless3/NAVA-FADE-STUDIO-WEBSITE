@@ -1,12 +1,14 @@
 <?php
-
 session_start();
 
+/* =========================================
+   ADMIN LOGIN CHECK
+========================================= */
 if (
     !isset($_SESSION["admin_logged_in"]) ||
     $_SESSION["admin_logged_in"] !== true
 ) {
-    header("Location: login.php");
+    header("Location: ../login.php");
     exit;
 }
 
@@ -27,59 +29,226 @@ $allowedStatuses = [
 ];
 
 $message = "";
+$messageType = "success";
 
+/* =========================================
+   UPDATE ORDER / PAYMENT STATUS
+========================================= */
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-// ==============================
-// UPDATE ORDER STATUS
-// ==============================
+    $order_id = (int)($_POST["order_id"] ?? 0);
 
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["update_status"])) {
+    /* ---------- MARK PAYMENT AS PAID ---------- */
+    if (isset($_POST["mark_paid"])) {
 
-    $order_id = (int) ($_POST["order_id"] ?? 0);
-    $status = $_POST["status"] ?? "";
+        if ($order_id <= 0) {
+            $message = "Invalid order information.";
+            $messageType = "error";
+        } else {
+            $check = $db->prepare("
+                SELECT
+                    o.status,
+                    p.id AS payment_id,
+                    p.status AS payment_status
+                FROM orders o
+                LEFT JOIN payments p
+                    ON p.order_id = o.id
+                WHERE o.id = :order_id
+                ORDER BY p.id DESC
+                LIMIT 1
+            ");
+            $check->execute([":order_id" => $order_id]);
+            $payment = $check->fetch(PDO::FETCH_ASSOC);
 
-    if ($order_id > 0 && in_array($status, $allowedStatuses, true)) {
+            if (!$payment) {
+                $message = "Payment record not found for this order.";
+                $messageType = "error";
+            } elseif (
+                $payment["status"] === "Completed" ||
+                $payment["status"] === "Cancelled"
+            ) {
+                $message = "Payment cannot be changed because this order is locked.";
+                $messageType = "error";
+            } elseif ($payment["payment_status"] === "Cancelled") {
+                $message = "This payment has already been cancelled.";
+                $messageType = "error";
+            } elseif ($payment["payment_status"] === "Paid") {
+                $message = "This payment is already marked as paid.";
+                $messageType = "error";
+            } else {
+                $stmt = $db->prepare("
+                    UPDATE payments
+                    SET status = 'Paid',
+                        paid_at = NOW()
+                    WHERE id = :payment_id
+                      AND status = 'Pending'
+                ");
 
-        if ($orderModel->updateStatus($order_id, $status)) {
-            header("Location: orders.php?message=updated");
-            exit;
+                $stmt->execute([
+                    ":payment_id" => $payment["payment_id"]
+                ]);
+
+                header("Location: orders.php?message=payment_paid");
+                exit;
+            }
         }
+    }
 
-        $message = "Failed to update order status.";
+    /* ---------- UPDATE ORDER STATUS ---------- */
+    if (isset($_POST["update_status"])) {
 
-    } else {
+        $status = $_POST["status"] ?? "";
 
-        $message = "Invalid order information.";
+        if ($order_id <= 0 || !in_array($status, $allowedStatuses, true)) {
+
+            $message = "Invalid order information.";
+            $messageType = "error";
+
+        } else {
+
+            $stmt = $db->prepare("
+                SELECT
+                    o.status,
+                    p.status AS payment_status
+                FROM orders o
+                LEFT JOIN payments p
+                    ON p.order_id = o.id
+                WHERE o.id = :order_id
+                ORDER BY p.id DESC
+                LIMIT 1
+            ");
+
+            $stmt->execute([":order_id" => $order_id]);
+            $current = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$current) {
+
+                $message = "Order not found.";
+                $messageType = "error";
+
+            } elseif (
+                $current["status"] === "Completed" ||
+                $current["status"] === "Cancelled"
+            ) {
+
+                $message = "This order is locked and its status can no longer be changed.";
+                $messageType = "error";
+
+            } elseif (
+                $status === "Completed" &&
+                $current["payment_status"] !== "Paid"
+            ) {
+
+                $message = "The order cannot be marked Completed until the payment is Paid.";
+                $messageType = "error";
+
+            } elseif ($status === "Cancelled") {
+
+                $db->beginTransaction();
+
+                try {
+                    $update = $db->prepare("
+                        UPDATE orders
+                        SET status = 'Cancelled'
+                        WHERE id = :order_id
+                          AND status NOT IN ('Completed', 'Cancelled')
+                    ");
+                    $update->execute([":order_id" => $order_id]);
+
+                    $cancelPayment = $db->prepare("
+                        UPDATE payments
+                        SET status = 'Cancelled'
+                        WHERE order_id = :order_id
+                          AND status = 'Pending'
+                    ");
+                    $cancelPayment->execute([":order_id" => $order_id]);
+
+                    $db->commit();
+
+                    header("Location: orders.php?message=cancelled");
+                    exit;
+
+                } catch (Throwable $e) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+
+                    $message = "Failed to cancel the order.";
+                    $messageType = "error";
+                }
+
+            } else {
+
+                if ($orderModel->updateStatus($order_id, $status)) {
+                    header("Location: orders.php?message=updated");
+                    exit;
+                }
+
+                $message = "Failed to update order status.";
+                $messageType = "error";
+            }
+        }
     }
 }
 
+/* =========================================
+   SUCCESS / ERROR MESSAGES
+========================================= */
+if (isset($_GET["message"])) {
+    switch ($_GET["message"]) {
+        case "updated":
+            $message = "Order status updated successfully.";
+            $messageType = "success";
+            break;
 
-// ==============================
-// SUCCESS MESSAGE
-// ==============================
+        case "payment_paid":
+            $message = "Payment marked as Paid successfully.";
+            $messageType = "success";
+            break;
 
-if (isset($_GET["message"]) && $_GET["message"] === "updated") {
-    $message = "Order status updated successfully.";
+        case "cancelled":
+            $message = "Order cancelled successfully.";
+            $messageType = "success";
+            break;
+    }
 }
 
-
-// ==============================
-// GET ORDERS
-// ==============================
-
+/* =========================================
+   GET ORDERS
+========================================= */
 $orders = $orderModel->getAll();
 
-
-// ==============================
-// GET ORDER ITEMS
-// ==============================
-
 $orderItems = [];
+$payments = [];
 
 foreach ($orders as $order) {
 
-    $orderItems[$order["id"]] =
-        $orderModel->getItemsByOrderId((int) $order["id"]);
+    $orderId = (int)$order["id"];
+
+    $orderItems[$orderId] =
+        $orderModel->getItemsByOrderId($orderId);
+
+    $paymentQuery = $db->prepare("
+        SELECT
+            id,
+            payment_method,
+            reference_number,
+            amount,
+            status,
+            paid_at,
+            created_at
+        FROM payments
+        WHERE order_id = :order_id
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+
+    $paymentQuery->execute([
+        ":order_id" => $orderId
+    ]);
+
+    $payments[$orderId] =
+        $paymentQuery->fetch(PDO::FETCH_ASSOC);
 }
 
 ?>
@@ -88,247 +257,86 @@ foreach ($orders as $order) {
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>Orders | NAVA Fade Studio</title>
 
     <style>
-
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         body {
-            font-family: Bahnschrift, "Myriad Pro", Arial, sans-serif;
+            font-family: Bahnschrift, "Myriad Pro", "Bahnschrift", sans-serif;
             background:
                 linear-gradient(
                     rgba(8, 12, 22, 0.92),
                     rgba(8, 12, 22, 0.96)
                 ),
                 url("../assets/images/pattern3.png");
-
             background-size: cover;
-
             background-position: center;
-            
+            background-attachment: fixed;
             color: white;
             min-height: 100vh;
+            margin: 0;
         }
-
-
-        /* =========================
-           HEADER
-        ========================= */
-
-        .admin-header {
-            width: 100%;
-
-            height: 95px;
-
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            padding: 0 50px;
-
-            background: #0e1423;
-
-            border-bottom: 2px solid #b8862c;
-
-            position: sticky;
-            top: 0;
-
-            z-index: 1000;
-        }
-
-
-        .admin-logo {
-            display: flex;
-            align-items: center;
-
-            gap: 15px;
-        }
-
-
-        .admin-logo img {
-            width: 165px;
-            height: 165px;
-
-            object-fit: contain;
-        }
-
-        .admin-user {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 20px;
-
-        }
-
-        .admin-user span {
-
-            font-size: 15px;
-
-        }
-
-
-        .logout-btn {
-
-            padding: 10px 20px;
-
-            color: #b8862c;
-
-            border: 2px solid #b8862c;
-
-            border-radius: 8px;
-
-            text-decoration: none;
-
-            font-weight: bold;
-
-        }
-
-        .logout-btn:hover {
-            background: #b8862c;
-            color: #0e1423;
-        }
-
-
-        /* =========================================
-           DASHBOARD LAYOUT
-           ========================================= */
-
-        .dashboard {
-            display: flex;
-
-            min-height: calc(100vh - 80px);
-        }
-
-
-        /* =========================================
-           SIDEBAR
-           ========================================= */
-
-        .sidebar {
-            width: 250px;
-
-            padding: 35px 20px;
-
-            background: rgba(14, 20, 35, 0.95);
-
-            border-right: 1px solid rgba(184, 134, 44, 0.5);
-        }
-
-
-        .sidebar-title {
-            margin-bottom: 25px;
-
-            padding-left: 15px;
-
-            color: #888;
-
-            font-size: 13px;
-
-            text-transform: uppercase;
-
-            letter-spacing: 2px;
-        }
-
-
-        .sidebar a {
-            display: block;
-
-            padding: 15px 18px;
-
-            margin-bottom: 8px;
-
-            border-radius: 10px;
-
-            color: #ffffff;
-
-            text-decoration: none;
-
-            transition: 0.3s ease;
-        }
-
-
-        .sidebar a:hover,
-        .sidebar a.active {
-            background: #b8862c;
-
-            color: #0e1423;
-        }
-
-
-        /* =========================================
-           MAIN CONTENT
-           ========================================= */
 
         .main-content {
             flex: 1;
-
+            min-width: 0;
             padding: 50px;
         }
 
         .page-header {
-            margin-bottom: 35px;
+            margin-bottom: 30px;
         }
 
         .page-header h1 {
             font-size: 38px;
-            margin-bottom: 8px;
+            margin: 0 0 8px;
         }
 
         .page-header p {
             color: #aeb5c3;
             font-size: 17px;
+            margin: 0;
         }
 
-
-        /* =========================
-           MESSAGE
-        ========================= */
-
         .message {
-            background: rgba(46, 204, 113, 0.12);
-
-            color: #2ecc71;
-
-            border: 1px solid #2ecc71;
-
             padding: 15px 18px;
             border-radius: 9px;
-
             margin-bottom: 25px;
-
             font-weight: bold;
         }
 
+        .message.success {
+            background: rgba(46, 204, 113, 0.12);
+            color: #2ecc71;
+            border: 1px solid #2ecc71;
+        }
 
-        /* =========================
-           TABLE
-        ========================= */
+        .message.error {
+            background: rgba(244, 67, 54, 0.12);
+            color: #ff6b61;
+            border: 1px solid #f44336;
+        }
 
         .table-container {
-            background: rgba(14, 20, 35, 0.96);
-
+            background: rgba(14, 20, 35, 0.97);
             border: 1px solid #b8862c;
             border-radius: 15px;
-
             overflow-x: auto;
-
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
         }
 
         table {
             width: 100%;
-            min-width: 1050px;
+            min-width: 1350px;
             border-collapse: collapse;
         }
 
@@ -340,16 +348,14 @@ foreach ($orders as $order) {
         th {
             padding: 18px 16px;
             text-align: left;
-
-            font-size: 14px;
+            font-size: 13px;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         td {
             padding: 18px 16px;
-
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-
             color: #e5e8ee;
             vertical-align: top;
         }
@@ -358,21 +364,11 @@ foreach ($orders as $order) {
             background: rgba(255, 255, 255, 0.03);
         }
 
-
-        /* =========================
-           ORDER NUMBER
-        ========================= */
-
         .order-number {
             color: #d19a2a;
             font-weight: bold;
             font-size: 16px;
         }
-
-
-        /* =========================
-           CUSTOMER
-        ========================= */
 
         .customer-name {
             font-weight: bold;
@@ -385,14 +381,11 @@ foreach ($orders as $order) {
             line-height: 1.5;
         }
 
-
-        /* =========================
-           PRODUCTS
-        ========================= */
-
         .product-list {
             list-style: none;
             padding: 0;
+            margin: 0;
+            min-width: 170px;
         }
 
         .product-list li {
@@ -410,33 +403,25 @@ foreach ($orders as $order) {
             font-weight: bold;
         }
 
-
-        /* =========================
-           TOTAL
-        ========================= */
-
         .order-total {
             color: #d19a2a;
             font-size: 17px;
             font-weight: bold;
+            white-space: nowrap;
         }
 
-
-        /* =========================
-           STATUS
-        ========================= */
-
-        .status {
+        .status,
+        .payment-status {
             display: inline-block;
-
             padding: 7px 12px;
             border-radius: 20px;
-
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
+            white-space: nowrap;
         }
 
-        .status-pending {
+        .status-pending,
+        .payment-pending {
             background: rgba(255, 193, 7, 0.15);
             color: #ffc107;
         }
@@ -451,139 +436,131 @@ foreach ($orders as $order) {
             color: #2196f3;
         }
 
-        .status-completed {
+        .status-completed,
+        .payment-paid {
             background: rgba(76, 175, 80, 0.15);
             color: #4caf50;
         }
 
-        .status-cancelled {
+        .status-cancelled,
+        .payment-cancelled,
+        .payment-failed {
             background: rgba(244, 67, 54, 0.15);
             color: #f44336;
         }
 
+        .payment-box {
+            min-width: 185px;
+            line-height: 1.6;
+        }
 
-        /* =========================
-           UPDATE FORM
-        ========================= */
+        .payment-row {
+            margin-bottom: 6px;
+        }
+
+        .payment-label {
+            color: #8f98aa;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }
+
+        .payment-value {
+            color: #f1f1f1;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .reference {
+            color: #d5a63a;
+            word-break: break-all;
+        }
+
+        .paid-date {
+            color: #8f98aa;
+            font-size: 11px;
+        }
 
         .status-form {
             display: flex;
+            flex-direction: column;
             gap: 8px;
-            align-items: center;
+            min-width: 145px;
         }
 
         .status-select {
+            width: 100%;
             background: #151d30;
             color: white;
-
             border: 1px solid #4d5567;
             border-radius: 7px;
-
             padding: 9px 10px;
-
             font-family: inherit;
             font-size: 13px;
+        }
+
+        .update-btn,
+        .paid-btn {
+            border: none;
+            border-radius: 7px;
+            padding: 9px 12px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
         }
 
         .update-btn {
             background: #b8862c;
             color: #0e1423;
-
-            border: none;
-            border-radius: 7px;
-
-            padding: 9px 12px;
-
-            font-family: inherit;
-            font-weight: bold;
-
-            cursor: pointer;
-
-            transition: 0.3s;
         }
 
         .update-btn:hover {
             background: #d19a2a;
         }
 
+        .paid-btn {
+            background: #2ecc71;
+            color: #0e1423;
+        }
 
-        /* =========================
-           EMPTY
-        ========================= */
+        .paid-btn:hover {
+            background: #42e487;
+        }
+
+        .paid-btn:disabled,
+        .update-btn:disabled,
+        .status-select:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .locked-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 145px;
+        }
+
+        .locked-label {
+            color: #8f98aa;
+            font-size: 12px;
+        }
 
         .empty-orders {
             padding: 60px 20px;
             text-align: center;
-
             color: #9fa7b8;
             font-size: 17px;
         }
 
-
-        /* =========================
-           RESPONSIVE
-        ========================= */
-
         @media (max-width: 900px) {
-
-            .admin-header {
-                padding: 0 20px;
-            }
-
-            .admin-user {
-                gap: 12px;
-                font-size: 14px;
-            }
-
-            .sidebar {
-                width: 220px;
-            }
-
             .main-content {
                 padding: 35px 25px;
             }
-
         }
 
-
-        @media (max-width: 650px) {
-
-            .admin-header {
-                height: auto;
-                min-height: 80px;
-                padding: 12px 15px;
-            }
-
-            .admin-logo img {
-                width: 130px;
-            }
-
-            .admin-user span {
-                display: none;
-            }
-
-            .admin-layout {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-                padding: 15px;
-                border-right: none;
-                border-bottom: 1px solid rgba(184, 134, 44, 0.15);
-            }
-
-            .sidebar-title {
-                margin: 5px 10px 15px;
-            }
-
-            .sidebar a {
-                display: inline-block;
-                margin: 3px;
-                padding: 10px 14px;
-                font-size: 14px;
-            }
-
+        @media (max-width: 700px) {
             .main-content {
                 padding: 30px 15px;
             }
@@ -591,49 +568,32 @@ foreach ($orders as $order) {
             .page-header h1 {
                 font-size: 30px;
             }
-
         }
-
     </style>
-
 </head>
 
 <body>
 
 <?php include "../admin/navbar.php"; ?>
 
-<!-- ==============================
-     ADMIN LAYOUT
-================================ -->
-
 <div class="admin-layout">
 
-<?php include "sidebar.php"; ?>
-
-<!-- MAIN CONTENT -->
+    <?php include "../admin/sidebar.php"; ?>
 
     <main class="main-content">
 
-
         <div class="page-header">
-
             <h1>Orders</h1>
-
             <p>
-                View and manage customer product orders.
+                View and manage customer product orders and payments.
             </p>
-
         </div>
 
-
         <?php if ($message): ?>
-
-            <div class="message">
+            <div class="message <?= $messageType === "error" ? "error" : "success" ?>">
                 <?= htmlspecialchars($message) ?>
             </div>
-
         <?php endif; ?>
-
 
         <div class="table-container">
 
@@ -648,151 +608,248 @@ foreach ($orders as $order) {
                 <table>
 
                     <thead>
-
                         <tr>
-
                             <th>Order #</th>
-
                             <th>Customer</th>
-
                             <th>Products</th>
-
                             <th>Total</th>
-
-                            <th>Status</th>
-
+                            <th>Payment</th>
+                            <th>Payment Status</th>
+                            <th>Order Status</th>
                             <th>Date</th>
-
                             <th>Action</th>
-
                         </tr>
-
                     </thead>
 
                     <tbody>
 
-                        <?php foreach ($orders as $order): ?>
+                    <?php foreach ($orders as $order): ?>
 
-                            <tr>
+                        <?php
+                        $orderId = (int)$order["id"];
+                        $payment = $payments[$orderId] ?? null;
 
-                                <!-- ORDER NUMBER -->
+                        $orderStatusClass =
+                            strtolower($order["status"]);
 
-                                <td>
+                        $paymentStatusClass =
+                            $payment
+                                ? strtolower($payment["status"])
+                                : "pending";
 
-                                    <div class="order-number">
-                                        #<?= (int) $order["id"] ?>
+                        $isLocked =
+                            in_array(
+                                $order["status"],
+                                ["Completed", "Cancelled"],
+                                true
+                            );
+                        ?>
+
+                        <tr>
+
+                            <!-- ORDER NUMBER -->
+                            <td>
+                                <div class="order-number">
+                                    #<?= $orderId ?>
+                                </div>
+                            </td>
+
+                            <!-- CUSTOMER -->
+                            <td>
+                                <div class="customer-name">
+                                    <?= htmlspecialchars($order["full_name"]) ?>
+                                </div>
+
+                                <div class="customer-details">
+                                    <?= htmlspecialchars($order["email"]) ?>
+                                    <br>
+                                    <?= htmlspecialchars($order["contact_number"]) ?>
+                                </div>
+                            </td>
+
+                            <!-- PRODUCTS -->
+                            <td>
+                                <ul class="product-list">
+
+                                    <?php foreach (
+                                        $orderItems[$orderId] ?? []
+                                        as $item
+                                    ): ?>
+
+                                        <li>
+                                            <?= htmlspecialchars($item["product_name"]) ?>
+
+                                            <span class="product-qty">
+                                                × <?= (int)$item["quantity"] ?>
+                                            </span>
+                                        </li>
+
+                                    <?php endforeach; ?>
+
+                                </ul>
+                            </td>
+
+                            <!-- TOTAL -->
+                            <td>
+                                <div class="order-total">
+                                    ₱<?= number_format(
+                                        (float)$order["total_amount"],
+                                        2
+                                    ) ?>
+                                </div>
+                            </td>
+
+                            <!-- PAYMENT METHOD / REFERENCE -->
+                            <td>
+                                <?php if ($payment): ?>
+
+                                    <div class="payment-box">
+
+                                        <div class="payment-row">
+                                            <div class="payment-label">
+                                                Method
+                                            </div>
+
+                                            <div class="payment-value">
+                                                <?= htmlspecialchars(
+                                                    $payment["payment_method"]
+                                                ) ?>
+                                            </div>
+                                        </div>
+
+                                        <?php if (
+                                            $payment["payment_method"] === "GCash"
+                                        ): ?>
+
+                                            <div class="payment-row">
+                                                <div class="payment-label">
+                                                    GCash Reference
+                                                </div>
+
+                                                <div class="payment-value reference">
+                                                    <?= !empty($payment["reference_number"])
+                                                        ? htmlspecialchars($payment["reference_number"])
+                                                        : "Not provided" ?>
+                                                </div>
+                                            </div>
+
+                                        <?php endif; ?>
+
+                                        <div class="payment-row">
+                                            <div class="payment-label">
+                                                Amount
+                                            </div>
+
+                                            <div class="payment-value">
+                                                ₱<?= number_format(
+                                                    (float)$payment["amount"],
+                                                    2
+                                                ) ?>
+                                            </div>
+                                        </div>
+
                                     </div>
 
-                                </td>
+                                <?php else: ?>
 
-
-                                <!-- CUSTOMER -->
-
-                                <td>
-
-                                    <div class="customer-name">
-                                        <?= htmlspecialchars($order["full_name"]) ?>
-                                    </div>
-
-                                    <div class="customer-details">
-
-                                        <?= htmlspecialchars($order["email"]) ?>
-
-                                        <br>
-
-                                        <?= htmlspecialchars($order["contact_number"]) ?>
-
-                                    </div>
-
-                                </td>
-
-
-                                <!-- PRODUCTS -->
-
-                                <td>
-
-                                    <ul class="product-list">
-
-                                        <?php foreach ($orderItems[$order["id"]] ?? [] as $item): ?>
-
-                                            <li>
-
-                                                <?= htmlspecialchars($item["product_name"]) ?>
-
-                                                <span class="product-qty">
-                                                    × <?= (int) $item["quantity"] ?>
-                                                </span>
-
-                                            </li>
-
-                                        <?php endforeach; ?>
-
-                                    </ul>
-
-                                </td>
-
-
-                                <!-- TOTAL -->
-
-                                <td>
-
-                                    <div class="order-total">
-
-                                        ₱<?= number_format(
-                                            (float) $order["total_amount"],
-                                            2
-                                        ) ?>
-
-                                    </div>
-
-                                </td>
-
-
-                                <!-- STATUS -->
-
-                                <td>
-
-                                    <?php
-
-                                    $statusClass = strtolower($order["status"]);
-
-                                    ?>
-
-                                    <span class="status status-<?= htmlspecialchars($statusClass) ?>">
-
-                                        <?= htmlspecialchars($order["status"]) ?>
-
+                                    <span style="color:#9fa7b8;">
+                                        No payment record
                                     </span>
 
-                                </td>
+                                <?php endif; ?>
+                            </td>
 
+                            <!-- PAYMENT STATUS -->
+                            <td>
 
-                                <!-- DATE -->
+                                <?php if ($payment): ?>
 
-                                <td>
+                                    <span class="payment-status payment-<?= htmlspecialchars($paymentStatusClass) ?>">
+                                        <?= htmlspecialchars($payment["status"]) ?>
+                                    </span>
 
+                                    <?php if (
+                                        $payment["status"] === "Paid" &&
+                                        !empty($payment["paid_at"])
+                                    ): ?>
+
+                                        <div class="paid-date">
+                                            <?= date(
+                                                "M d, Y h:i A",
+                                                strtotime($payment["paid_at"])
+                                            ) ?>
+                                        </div>
+
+                                    <?php endif; ?>
+
+                                <?php else: ?>
+
+                                    <span class="payment-status payment-pending">
+                                        Pending
+                                    </span>
+
+                                <?php endif; ?>
+
+                            </td>
+
+                            <!-- ORDER STATUS -->
+                            <td>
+
+                                <span class="status status-<?= htmlspecialchars($orderStatusClass) ?>">
+                                    <?= htmlspecialchars($order["status"]) ?>
+                                </span>
+
+                            </td>
+
+                            <!-- DATE -->
+                            <td>
+                                <?= date(
+                                    "M d, Y",
+                                    strtotime($order["created_at"])
+                                ) ?>
+
+                                <br>
+
+                                <span style="color:#9fa7b8;font-size:13px;">
                                     <?= date(
-                                        "M d, Y",
+                                        "h:i A",
                                         strtotime($order["created_at"])
                                     ) ?>
+                                </span>
+                            </td>
 
-                                    <br>
+                            <!-- ACTION -->
+                            <td>
 
-                                    <span style="color:#9fa7b8;font-size:13px;">
+                                <?php if ($isLocked): ?>
 
-                                        <?= date(
-                                            "h:i A",
-                                            strtotime($order["created_at"])
-                                        ) ?>
+                                    <div class="locked-box">
+                                        <span class="locked-label">
+                                            🔒 Status Locked
+                                        </span>
 
-                                    </span>
+                                        <?php if (
+                                            $payment &&
+                                            $payment["status"] === "Paid"
+                                        ): ?>
 
-                                </td>
+                                            <span class="payment-status payment-paid">
+                                                Payment Paid
+                                            </span>
 
+                                        <?php elseif (
+                                            $payment &&
+                                            $payment["status"] === "Cancelled"
+                                        ): ?>
 
-                                <!-- ACTION -->
+                                            <span class="payment-status payment-cancelled">
+                                                Payment Cancelled
+                                            </span>
 
-                                <td>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php else: ?>
 
                                     <form
                                         method="POST"
@@ -803,7 +860,7 @@ foreach ($orders as $order) {
                                         <input
                                             type="hidden"
                                             name="order_id"
-                                            value="<?= (int) $order["id"] ?>"
+                                            value="<?= $orderId ?>"
                                         >
 
                                         <select
@@ -811,7 +868,10 @@ foreach ($orders as $order) {
                                             class="status-select"
                                         >
 
-                                            <?php foreach ($allowedStatuses as $status): ?>
+                                            <?php foreach (
+                                                $allowedStatuses
+                                                as $status
+                                            ): ?>
 
                                                 <option
                                                     value="<?= htmlspecialchars($status) ?>"
@@ -829,16 +889,59 @@ foreach ($orders as $order) {
                                             name="update_status"
                                             class="update-btn"
                                         >
-                                            Update
+                                            Update Status
                                         </button>
 
                                     </form>
 
-                                </td>
+                                    <?php if (
+                                        $payment &&
+                                        $payment["status"] === "Pending"
+                                    ): ?>
 
-                            </tr>
+                                        <form
+                                            method="POST"
+                                            action="orders.php"
+                                            style="margin-top:8px;"
+                                        >
 
-                        <?php endforeach; ?>
+                                            <input
+                                                type="hidden"
+                                                name="order_id"
+                                                value="<?= $orderId ?>"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                name="mark_paid"
+                                                class="paid-btn"
+                                            >
+                                                ✓ Mark as Paid
+                                            </button>
+
+                                        </form>
+
+                                    <?php elseif (
+                                        $payment &&
+                                        $payment["status"] === "Paid"
+                                    ): ?>
+
+                                        <span
+                                            class="payment-status payment-paid"
+                                            style="margin-top:8px;"
+                                        >
+                                            ✓ Payment Verified
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                <?php endif; ?>
+
+                            </td>
+
+                        </tr>
+
+                    <?php endforeach; ?>
 
                     </tbody>
 
@@ -852,7 +955,5 @@ foreach ($orders as $order) {
 
 </div>
 
-
 </body>
-
 </html>

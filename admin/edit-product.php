@@ -42,13 +42,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST["name"] ?? "");
     $description = trim($_POST["description"] ?? "");
     $price = trim($_POST["price"] ?? "");
-    $stock = trim($_POST["stock"] ?? "");
     $status = trim($_POST["status"] ?? "Active");
 
-    if (
+        if (
         $name === "" ||
-        $price === "" ||
-        $stock === ""
+        $price === ""
     ) {
         header("Location: edit-product.php?id=$id&message=empty");
         exit;
@@ -140,12 +138,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $product->id = $id;
 
     $product->product_name = $name;
-
     $product->description = $description;
 
     $product->price = (float) $price;
-
-    $product->stock = (int) $stock;
 
     $product->image = $image;
 
@@ -231,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         body {
             min-height: 100vh;
 
-            font-family: "Myriad Pro", Arial, sans-serif;
+            font-family: "Myriad Pro", "Bahnschrift", sans-serif;
 
             background:
                 url("../assets/images/pattern1.png");
@@ -857,25 +852,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </div>
 
 
-                <!-- STOCK -->
-
-                <div class="form-group">
-
-                    <label for="stock">
-                        Stock *
-                    </label>
-
-                    <input
-                        type="number"
-                        id="stock"
-                        name="stock"
-                        value="<?= htmlspecialchars($currentProduct["stock"]) ?>"
-                        min="0"
-                        required
-                    >
-
-                </div>
-
+        
 
                 <!-- CURRENT IMAGE -->
 

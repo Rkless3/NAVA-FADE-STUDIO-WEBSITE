@@ -139,11 +139,12 @@ foreach ($cart as $product_id => $quantity) {
     }
 
 
-    /* DO NOT EXCEED CURRENT STOCK */
+    /* CUSTOMER MAXIMUM: 5 UNITS PER PRODUCT */
 
-    if ($quantity > (int) $product["stock"]) {
+    $maxAllowed = min((int) $product["stock"], 5);
 
-        $quantity = (int) $product["stock"];
+    if ($quantity > $maxAllowed) {
+        $quantity = $maxAllowed;
     }
 
 
@@ -202,6 +203,10 @@ $order_id = null;
 
 $errorMessage = "";
 
+$payment_method = $_POST["payment_method"] ?? "";
+
+$reference_number = trim($_POST["reference_number"] ?? "");
+
 
 /* =========================================
    PLACE ORDER
@@ -212,10 +217,74 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     try {
 
         /* =====================================
+           VALIDATE PAYMENT METHOD
+        ===================================== */
+
+        if (!in_array($payment_method, ["Cash", "GCash"], true)) {
+            throw new Exception("Please select a valid payment method.");
+        }
+
+        if ($payment_method === "GCash") {
+
+            if ($reference_number === "") {
+                throw new Exception("Please enter your GCash reference number.");
+            }
+
+            if (!preg_match('/^[A-Za-z0-9\\-]{5,100}$/', $reference_number)) {
+                throw new Exception("Please enter a valid GCash reference number.");
+            }
+
+        } else {
+            $reference_number = null;
+        }
+
+
+        /* =====================================
            START TRANSACTION
         ===================================== */
 
         $db->beginTransaction();
+
+
+        /* =====================================
+           RECHECK STOCK
+        ===================================== */
+
+        foreach ($orderItems as $item) {
+
+            $lockStmt = $db->prepare("
+                SELECT id, product_name, stock, status
+                FROM products
+                WHERE id = :product_id
+                FOR UPDATE
+            ");
+
+            $lockStmt->bindValue(
+                ":product_id",
+                $item["product_id"],
+                PDO::PARAM_INT
+            );
+
+            $lockStmt->execute();
+
+            $lockedProduct = $lockStmt->fetch();
+
+            if (!$lockedProduct || $lockedProduct["status"] !== "Active") {
+                throw new Exception(
+                    $item["product_name"] . " is no longer available."
+                );
+            }
+
+            $availableStock = (int) $lockedProduct["stock"];
+            $maxAllowed = min($availableStock, 5);
+
+            if ($item["quantity"] > $maxAllowed) {
+                throw new Exception(
+                    "Only " . $maxAllowed . " unit(s) of " .
+                    $item["product_name"] . " can be ordered right now."
+                );
+            }
+        }
 
 
         /* =====================================
@@ -386,6 +455,45 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
         /* =====================================
+           CREATE PAYMENT RECORD
+        ===================================== */
+
+        $paymentStmt = $db->prepare("
+            INSERT INTO payments
+            (
+                customer_id,
+                order_id,
+                payment_method,
+                reference_number,
+                amount,
+                status
+            )
+            VALUES
+            (
+                :customer_id,
+                :order_id,
+                :payment_method,
+                :reference_number,
+                :amount,
+                'Pending'
+            )
+        ");
+
+        $paymentStmt->bindValue(":customer_id", $customer_id, PDO::PARAM_INT);
+        $paymentStmt->bindValue(":order_id", $order_id, PDO::PARAM_INT);
+        $paymentStmt->bindValue(":payment_method", $payment_method);
+
+        if ($reference_number === null) {
+            $paymentStmt->bindValue(":reference_number", null, PDO::PARAM_NULL);
+        } else {
+            $paymentStmt->bindValue(":reference_number", $reference_number);
+        }
+
+        $paymentStmt->bindValue(":amount", $total);
+        $paymentStmt->execute();
+
+
+        /* =====================================
            COMPLETE TRANSACTION
         ===================================== */
 
@@ -461,7 +569,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         body {
             margin: 0;
-            font-family: Bahnschrift, "Segoe UI", Arial, sans-serif;
+            font-family: Bahnschrift, "Myriad Pro", Arial, sans-serif;
             background: #0b1020;
         }
 
@@ -955,6 +1063,145 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .checkout-notice strong {
 
             color: #d4a33a;
+        }
+
+
+        /* =====================================================
+           PAYMENT METHOD
+        ===================================================== */
+
+        .payment-section {
+            margin-top: 28px;
+            padding-top: 25px;
+            border-top: 1px solid rgba(255, 255, 255, 0.10);
+        }
+
+        .payment-section h3 {
+            margin: 0 0 16px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .payment-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .payment-option {
+            position: relative;
+        }
+
+        .payment-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .payment-option label {
+            min-height: 78px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 15px;
+            border: 1px solid #354057;
+            border-radius: 11px;
+            background: #11182a;
+            color: #ffffff;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .payment-option label:hover {
+            border-color: #b8862c;
+        }
+
+        .payment-option input[type="radio"]:checked + label {
+            border-color: #d4a33a;
+            background: rgba(184, 134, 44, 0.10);
+            box-shadow: 0 0 0 1px rgba(212, 163, 58, 0.15);
+        }
+
+        .payment-icon {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9px;
+            background: rgba(184, 134, 44, 0.14);
+            border: 1px solid rgba(184, 134, 44, 0.35);
+            color: #d4a33a;
+            font-weight: 900;
+            font-size: 17px;
+        }
+
+        .payment-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .payment-copy strong {
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        .payment-copy span {
+            color: #8f97a9;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .gcash-reference {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .gcash-reference.show {
+            display: block;
+        }
+
+        .gcash-reference label {
+            display: block;
+            margin-bottom: 7px;
+            color: #d5dae5;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .gcash-reference input {
+            width: 100%;
+            height: 45px;
+            padding: 0 13px;
+            border: 1px solid #354057;
+            border-radius: 9px;
+            outline: none;
+            background: #0f1627;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .gcash-reference input:focus {
+            border-color: #d4a33a;
+            box-shadow: 0 0 0 3px rgba(212, 163, 58, 0.08);
+        }
+
+        .gcash-reference small {
+            display: block;
+            margin-top: 6px;
+            color: #8f97a9;
+            font-size: 11px;
+        }
+
+        .payment-note {
+            margin-top: 12px;
+            color: #8f97a9;
+            font-size: 11px;
+            line-height: 1.5;
         }
 
 
@@ -1692,6 +1939,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="success-detail">
 
                 <span>
+                    Payment Method
+                </span>
+
+                <span>
+                    <?= htmlspecialchars($payment_method ?: "Pending") ?>
+                </span>
+
+            </div>
+
+
+            <?php if ($payment_method === "GCash" && !empty($reference_number)): ?>
+
+                <div class="success-detail">
+                    <span>GCash Reference</span>
+                    <span><?= htmlspecialchars($reference_number) ?></span>
+                </div>
+
+            <?php endif; ?>
+
+
+            <div class="success-detail">
+                <span>Payment Status</span>
+                <span>Pending Verification</span>
+            </div>
+
+
+            <div class="success-detail">
+
+                <span>
                     Order Status
                 </span>
 
@@ -1905,6 +2181,102 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
 
+            <!-- PAYMENT METHOD -->
+
+            <div class="payment-section">
+
+                <h3>Payment Method</h3>
+
+                <div class="payment-options">
+
+                    <div class="payment-option">
+
+                        <input
+                            type="radio"
+                            id="payment_cash"
+                            name="payment_method"
+                            value="Cash"
+                            <?= $payment_method === "Cash" ? "checked" : "" ?>
+                            form="checkoutForm"
+                            required
+                        >
+
+                        <label for="payment_cash">
+                            <span class="payment-icon">₱</span>
+                            <span class="payment-copy">
+                                <strong>Cash</strong>
+                                <span>Pay in cash when your order is received.</span>
+                            </span>
+                        </label>
+
+                    </div>
+
+
+                    <div class="payment-option">
+
+                        <input
+                            type="radio"
+                            id="payment_gcash"
+                            name="payment_method"
+                            value="GCash"
+                            <?= $payment_method === "GCash" ? "checked" : "" ?>
+                            form="checkoutForm"
+                            required
+                        >
+
+                        <label for="payment_gcash">
+                            <span class="payment-icon">G</span>
+                            <span class="payment-copy">
+                                <strong>GCash</strong>
+                                <span>Pay using GCash.</span>
+                            </span>
+                        </label>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="gcash-reference <?= $payment_method === "GCash" ? "show" : "" ?>"
+                    id="gcashReference"
+                >
+
+                    <label for="reference_number">
+                        GCash Reference Number
+                    </label>
+
+                    <input
+                        type="text"
+                        id="reference_number"
+                        name="reference_number"
+                        maxlength="100"
+                        placeholder="Enter your GCash reference number"
+                        value="<?= htmlspecialchars(
+                            $reference_number ?? "",
+                            ENT_QUOTES,
+                            "UTF-8"
+                        ) ?>"
+                        form="checkoutForm"
+                        <?= $payment_method === "GCash" ? "required" : "" ?>
+                    >
+
+                    <small>
+                        Required when GCash is selected. Reference number only — no receipt upload required.
+                    </small>
+
+                </div>
+
+
+                <p class="payment-note">
+                    Your payment will initially be marked
+                    <strong>Pending</strong>
+                    until NAVA Fade Studio verifies it.
+                </p>
+
+            </div>
+
+
         </div>
 
 
@@ -2016,6 +2388,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <form
             method="POST"
             action="checkout.php"
+            id="checkoutForm"
         >
 
             <button
@@ -2035,6 +2408,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
 </main>
+
+
+<script>
+(function () {
+
+    const cash = document.getElementById("payment_cash");
+    const gcash = document.getElementById("payment_gcash");
+    const referenceField = document.getElementById("gcashReference");
+    const referenceInput = document.getElementById("reference_number");
+
+    if (!cash || !gcash || !referenceField || !referenceInput) {
+        return;
+    }
+
+    function updatePaymentFields() {
+
+        const isGCash = gcash.checked;
+
+        referenceField.classList.toggle("show", isGCash);
+        referenceInput.required = isGCash;
+
+        if (!isGCash) {
+            referenceInput.value = "";
+        }
+    }
+
+    cash.addEventListener("change", updatePaymentFields);
+    gcash.addEventListener("change", updatePaymentFields);
+
+    updatePaymentFields();
+
+})();
+</script>
 
 
 </body>

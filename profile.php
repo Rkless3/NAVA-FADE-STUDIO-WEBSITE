@@ -276,7 +276,7 @@ foreach (
 
             min-height: calc(100vh - 160px);
 
-            padding: 75px 20px 90px;
+            padding: 90px 8%;
 
             display: flex;
 
@@ -284,16 +284,11 @@ foreach (
 
             align-items: center;
 
-            background:
-                linear-gradient(
-                    rgba(14, 20, 35, 0.93),
-                    rgba(14, 20, 35, 0.97)
-                ),
-                url("assets/images/pattern2.png");
+            background: #f8f8f8;
 
-            background-size: 300px;
+            
 
-            background-attachment: fixed;
+            
         }
 
 
@@ -301,7 +296,7 @@ foreach (
 
             width: 100%;
 
-            max-width: 700px;
+            max-width: 800px;
         }
 
 
@@ -319,19 +314,11 @@ foreach (
 
             border-radius: 22px;
 
-            border: 1px solid
-                rgba(200, 148, 47, 0.65);
+            border: 1px solid rgba(0, 0, 0, 0.08);
 
-            background:
-                linear-gradient(
-                    145deg,
-                    #151d2f,
-                    #0e1423
-                );
+            background: #ffffff;
 
-            box-shadow:
-                0 25px 65px
-                rgba(0, 0, 0, 0.40);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
         }
 
 
@@ -353,7 +340,7 @@ foreach (
                 linear-gradient(
                     90deg,
                     transparent,
-                    #c8942f,
+                    #b8862c,
                     transparent
                 );
         }
@@ -375,7 +362,7 @@ foreach (
 
             margin-bottom: 10px;
 
-            color: #c8942f;
+            color: #b8862c;
 
             font-size: 11px;
 
@@ -389,7 +376,7 @@ foreach (
 
             margin: 0;
 
-            color: #ffffff;
+            color: #0e1423;
 
             font-size: 42px;
 
@@ -399,7 +386,7 @@ foreach (
 
         .profile-header h1 span {
 
-            color: #c8942f;
+            color: #b8862c;
         }
 
 
@@ -407,7 +394,7 @@ foreach (
 
             margin: 12px 0 0;
 
-            color: #8f9aae;
+            color: #666;
 
             font-size: 14px;
         }
@@ -431,11 +418,9 @@ foreach (
 
             border-radius: 14px;
 
-            background:
-                rgba(255, 255, 255, 0.035);
+            background: #fafafa;
 
-            border: 1px solid
-                rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(0, 0, 0, 0.07);
         }
 
 
@@ -455,9 +440,9 @@ foreach (
 
             border-radius: 50%;
 
-            background: #c8942f;
+            background: #b8862c;
 
-            color: #171b26;
+            color: #ffffff;
 
             font-size: 25px;
 
@@ -485,7 +470,7 @@ foreach (
 
             margin: 0;
 
-            color: #ffffff;
+            color: #0e1423;
 
             font-size: 21px;
 
@@ -501,7 +486,7 @@ foreach (
 
             margin: 0;
 
-            color: #8994a8;
+            color: #666;
 
             font-size: 13px;
 
@@ -521,7 +506,7 @@ foreach (
 
             margin-bottom: 18px;
 
-            color: #c8942f;
+            color: #b8862c;
 
             font-size: 12px;
 
@@ -601,7 +586,7 @@ foreach (
 
         .profile-form-group label {
 
-            color: #ffffff;
+            color: #0e1423;
 
             font-size: 13px;
 
@@ -617,16 +602,15 @@ foreach (
 
             padding: 0 15px;
 
-            border: 1px solid
-                rgba(255, 255, 255, 0.12);
+            border: 1px solid #ddd;
 
             border-radius: 9px;
 
             outline: none;
 
-            background: #0d1525;
+            background: #ffffff;
 
-            color: #ffffff;
+            color: #0e1423;
 
             font-family: inherit;
 
@@ -647,7 +631,7 @@ foreach (
 
         .profile-form-group input:focus {
 
-            border-color: #c8942f;
+            border-color: #b8862c;
 
             box-shadow:
                 0 0 0 3px
@@ -675,17 +659,15 @@ foreach (
 
             border-radius: 10px;
 
-            background:
-                rgba(200, 148, 47, 0.045);
+            background: rgba(184, 134, 44, 0.06);
 
-            border: 1px solid
-                rgba(200, 148, 47, 0.12);
+            border: 1px solid rgba(184, 134, 44, 0.18);
         }
 
 
         .member-info span {
 
-            color: #8490a4;
+            color: #777;
 
             font-size: 12px;
         }
@@ -693,7 +675,7 @@ foreach (
 
         .member-info strong {
 
-            color: #c8942f;
+            color: #b8862c;
 
             font-size: 12px;
         }
@@ -762,7 +744,7 @@ foreach (
 
         .profile-back a {
 
-            color: #c8942f;
+            color: #b8862c;
 
             text-decoration: none;
 
@@ -776,7 +758,7 @@ foreach (
 
         .profile-back a:hover {
 
-            color: #e0aa3b;
+            color: #b8862c;
         }
 
 
@@ -899,31 +881,25 @@ foreach (
                 Home
             </a>
 
-
             <a href="about.php">
                 About Us
             </a>
-
 
             <a href="index.php#services">
                 Service
             </a>
 
-
             <a href="reviews.php">
                 Reviews
             </a>
-
 
             <a href="shop.php">
                 Shop
             </a>
 
-
             <a href="blog.php">
                 Blog
             </a>
-
 
             <a
                 href="book.php"
@@ -933,129 +909,70 @@ foreach (
             </a>
 
 
-            <!-- CUSTOMER MENU -->
+            <?php if (isset($_SESSION["customer_id"])): ?>
 
-            <div class="customer-menu">
+                <div class="customer-menu">
 
-                <button
-                    class="customer-menu-btn"
-                    type="button"
-                    onclick="toggleCustomerMenu()"
-                >
-
-                    <span class="profile-avatar">
-
-                            <?= htmlspecialchars(
-                                $initials
-                            ) ?>
-
-                        </span>
-
-
-                    <span class="dropdown-arrow">
-                        ▼
-                    </span>
-
-                </button>
-
-
-                <div
-                    class="customer-dropdown"
-                    id="customerDropdown"
-                >
-
-
-                    <a
-                        href="profile.php"
-                        class="customer-profile-card"
+                    <button
+                        class="customer-menu-btn"
+                        type="button"
+                        onclick="toggleCustomerMenu()"
                     >
 
-                        <span class="profile-avatar">
+                        👤
+                        <?= htmlspecialchars(
+                            $_SESSION["customer_name"]
+                        ) ?>
 
-                            <?= htmlspecialchars(
-                                $initials
-                            ) ?>
-
+                        <span class="dropdown-arrow">
+                            ▼
                         </span>
 
-
-                        <span class="profile-details">
-
-                            <strong>
-                                <?= htmlspecialchars(
-                                    $customer["full_name"]
-                                ) ?>
-                            </strong>
+                    </button>
 
 
-                            <small>
-                                <?= htmlspecialchars(
-                                    $customer["email"]
-                                ) ?>
-                            </small>
-
-                        </span>
-
-                    </a>
-
-
-                    <div class="dropdown-divider"></div>
-
-
-                    <a
-                        href="my-orders.php"
-                        class="customer-dropdown-link"
+                    <div
+                        class="customer-dropdown"
+                        id="customerDropdown"
                     >
-                        <span class="dropdown-icon">
-                            🛍️
-                        </span>
 
-                        My Orders
-                    </a>
+                        <a href="my-orders.php">
+                            🛍️ My Orders
+                        </a>
 
+                        <a href="appointments.php">
+                            📅 My Appointments
+                        </a>
 
-                    <a
-                        href="appointments.php"
-                        class="customer-dropdown-link"
-                    >
-                        <span class="dropdown-icon">
-                            📅
-                        </span>
+                        <a href="review.php">
+                            ⭐ Write a Review
+                        </a>
 
-                        My Appointments
-                    </a>
+                        <div class="dropdown-divider"></div>
 
+                        <a
+                            href="logout.php"
+                            class="logout-link"
+                        >
+                            🚪 Logout
+                        </a>
 
-                    <a
-                        href="review.php"
-                        class="customer-dropdown-link"
-                    >
-                        <span class="dropdown-icon">
-                            ⭐
-                        </span>
-
-                        Write a Review
-                    </a>
-
-
-                    <div class="dropdown-divider"></div>
-
-
-                    <a
-                        href="logout.php"
-                        class="customer-dropdown-link logout-link"
-                    >
-                        <span class="dropdown-icon">
-                            🚪
-                        </span>
-
-                        Logout
-                    </a>
-
+                    </div>
 
                 </div>
 
-            </div>
+
+            <?php else: ?>
+
+                <a
+                    href="register.php"
+                    class="nav-button"
+                >
+                    Register
+                </a>
+
+            <?php endif; ?>
+
 
         </nav>
 

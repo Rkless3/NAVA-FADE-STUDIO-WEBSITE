@@ -111,6 +111,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $notes =
         trim($_POST["notes"] ?? "");
 
+    $payment_method = $_POST["payment_method"] ?? "";
+    $reference_number = trim($_POST["reference_number"] ?? "");
+
 
     /* =========================================
        CLEAN SERVICE IDS
@@ -148,7 +151,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (
         empty($selected_services) ||
         empty($appointment_date) ||
-        empty($appointment_time)
+        empty($appointment_time) ||
+        !in_array($payment_method, ["Cash", "GCash"], true)
     ) {
 
         $error =
@@ -158,6 +162,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $error =
             "Please select a valid appointment date.";
+
+    } elseif (
+        $payment_method === "GCash" &&
+        !preg_match('/^[A-Za-z0-9\-]{5,100}$/', $reference_number)
+    ) {
+
+        $error =
+            "Please enter a valid GCash reference number.";
 
     } else {
 
@@ -232,8 +244,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
             /* =========================================
-               INSERT APPOINTMENT
+               CHECK SCHEDULE CONFLICT
             ========================================= */
+
+            $conflict_query = $db->prepare("
+                SELECT COUNT(*)
+                FROM appointments
+                WHERE appointment_date = :appointment_date
+                  AND appointment_time = :appointment_time
+                  AND status IN ('Pending', 'Confirmed')
+            ");
+
+            $conflict_query->execute([
+                ":appointment_date" => $appointment_date,
+                ":appointment_time" => $appointment_time
+            ]);
+
+            if ((int) $conflict_query->fetchColumn() > 0) {
+                throw new RuntimeException(
+                    "That appointment schedule is already booked. Please choose another date or time."
+                );
+            }
+
+            /* =========================================
+               INSERT APPOINTMENT + PAYMENT
+            ========================================= */
+
+            $db->beginTransaction();
 
             $booking_query = $db->prepare("
                 INSERT INTO appointments (
@@ -254,34 +291,61 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 )
             ");
 
-
             $booking_query->execute([
-
-                ":customer_id" =>
-                    $customer_id,
-
-                ":service" =>
-                    $service_names,
-
-                ":appointment_date" =>
-                    $appointment_date,
-
-                ":appointment_time" =>
-                    $appointment_time,
-
-                ":notes" =>
-                    $notes
-
+                ":customer_id" => $customer_id,
+                ":service" => $service_names,
+                ":appointment_date" => $appointment_date,
+                ":appointment_time" => $appointment_time,
+                ":notes" => $notes
             ]);
 
+            $appointment_id = (int) $db->lastInsertId();
+            $total_amount = array_sum(array_map(
+                static fn($item) => (float) $item["price"],
+                $selected_data
+            ));
+
+            $payment_query = $db->prepare("
+                INSERT INTO payments (
+                    customer_id,
+                    appointment_id,
+                    payment_method,
+                    reference_number,
+                    amount,
+                    status
+                )
+                VALUES (
+                    :customer_id,
+                    :appointment_id,
+                    :payment_method,
+                    :reference_number,
+                    :amount,
+                    'Pending'
+                )
+            ");
+
+            $payment_query->execute([
+                ":customer_id" => $customer_id,
+                ":appointment_id" => $appointment_id,
+                ":payment_method" => $payment_method,
+                ":reference_number" => $payment_method === "GCash" ? $reference_number : null,
+                ":amount" => $total_amount
+            ]);
+
+            $db->commit();
 
             $success =
-                "Your appointment has been booked successfully!";
+                "Your appointment has been booked successfully! Payment is pending verification.";
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
 
-            $error =
-                "Unable to submit your booking. Please try again.";
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+
+            $error = $e instanceof RuntimeException
+                ? $e->getMessage()
+                : "Unable to submit your booking. Please try again.";
 
         }
 
@@ -347,8 +411,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             font-family:
                 Bahnschrift,
                 "Myriad Pro",
-                Arial,
-                sans-serif;
+                Arial;
 
             color: #ffffff;
 
@@ -2001,6 +2064,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
             <!-- =========================================
+                 PAYMENT METHOD
+            ========================================== -->
+
+            <div class="form-group">
+
+                <label class="form-label">
+                    <i class="fa-solid fa-wallet"></i>
+                    Payment Method
+                </label>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <label style="flex:1;min-width:150px;padding:15px;border:1px solid #3c4658;border-radius:11px;background:#0b1220;cursor:pointer;">
+                        <input type="radio" name="payment_method" value="Cash" required style="margin-right:8px;">
+                        Cash
+                    </label>
+                    <label style="flex:1;min-width:150px;padding:15px;border:1px solid #3c4658;border-radius:11px;background:#0b1220;cursor:pointer;">
+                        <input type="radio" name="payment_method" value="GCash" required style="margin-right:8px;">
+                        GCash
+                    </label>
+                </div>
+
+                <div id="gcashReferenceBox" style="display:none;margin-top:15px;">
+                    <label for="reference_number" class="form-label">GCash Reference Number</label>
+                    <input
+                        type="text"
+                        id="reference_number"
+                        name="reference_number"
+                        class="form-input"
+                        maxlength="100"
+                        placeholder="Enter your GCash reference number"
+                    >
+                </div>
+
+            </div>
+
+            <!-- =========================================
                  BOOK BUTTON
             ========================================== -->
 
@@ -2272,6 +2371,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     ========================================== */
 
     updateSelectedServices();
+
+    const paymentMethods = document.querySelectorAll('input[name="payment_method"]');
+    const gcashReferenceBox = document.getElementById("gcashReferenceBox");
+    const referenceNumber = document.getElementById("reference_number");
+
+    paymentMethods.forEach(function (method) {
+        method.addEventListener("change", function () {
+            const isGCash = this.value === "GCash";
+            gcashReferenceBox.style.display = isGCash ? "block" : "none";
+            referenceNumber.required = isGCash;
+            if (!isGCash) referenceNumber.value = "";
+        });
+    });
 
 </script>
 

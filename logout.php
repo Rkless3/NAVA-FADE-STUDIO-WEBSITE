@@ -25,7 +25,7 @@ unset(
 
 
 /*
- * Clear everything.
+ * Clear everything...
  */
 
 $_SESSION = [];

@@ -1,5 +1,5 @@
 <?php
-/* NAVA Fade Studio - Shared Admin Navbar */
+/* NAVA-Fade-Studio - Shared Admin Navbar */
 $adminUsername = $_SESSION["admin_username"] ?? "Admin";
 ?>
 
